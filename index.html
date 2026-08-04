@@ -1,0 +1,3749 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Frontline Defense 3D</title>
+<style>
+  :root {
+    --panel: #23271d;
+    --panel2: #2e3325;
+    --line: #3e4433;
+    --text: #e5e7d8;
+    --dim: #9aa08a;
+    --gold: #e5b654;
+    --red: #e06c5a;
+    --green: #a3b16a;
+    --blue: #6db3d6;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    background: #1a1d16;
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    display: flex; flex-direction: column; align-items: center;
+    min-height: 100vh; padding: 10px; user-select: none;
+  }
+  h1 {
+    font-size: 20px; letter-spacing: 5px; text-transform: uppercase;
+    color: #c9d1a8; text-shadow: 0 1px 0 #000; margin-bottom: 6px;
+  }
+  #hud {
+    display: flex; gap: 16px; align-items: center;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 10px 10px 0 0; padding: 7px 16px;
+    width: 1120px; max-width: 100%; font-size: 15px;
+  }
+  #hud .stat { display: flex; align-items: center; gap: 6px; }
+  #hud .stat b { font-size: 17px; }
+  .gold b { color: var(--gold); }
+  .lives b { color: var(--red); }
+  .wave b { color: var(--green); }
+  .land b { color: var(--blue); }
+  .inbound b { color: var(--green); font-size: 14px; }
+  #hud .spacer { flex: 1; }
+  button {
+    background: var(--panel2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 6px 12px; font-size: 14px; cursor: pointer; transition: all 0.15s;
+  }
+  button:hover { border-color: var(--green); color: #d6dfb2; }
+  button:disabled { opacity: 0.4; cursor: default; }
+  button:disabled:hover { border-color: var(--line); color: var(--text); }
+  #startWave {
+    background: linear-gradient(135deg, #4a5334, #39402a);
+    border-color: var(--green); font-weight: 600;
+  }
+  #startWave:hover { color: #fff; box-shadow: 0 0 12px rgba(163,177,106,0.4); }
+  #gameWrap { position: relative; width: 1120px; max-width: 100%; }
+  #three canvas { display: block; border: 1px solid var(--line); max-width: 100%; cursor: crosshair; }
+  #hint {
+    width: 1120px; max-width: 100%; text-align: center;
+    font-size: 11.5px; color: var(--dim); padding: 3px 0 2px;
+  }
+  #bottomBar {
+    display: flex; gap: 5px; align-items: stretch;
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 0 0 10px 10px; padding: 8px 10px;
+    width: 1120px; max-width: 100%; min-height: 96px;
+  }
+  .towerCard {
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+    background: var(--panel2); border: 2px solid var(--line); border-radius: 9px;
+    padding: 6px 5px; cursor: pointer; transition: all 0.15s; min-width: 72px;
+  }
+  .towerCard:hover { border-color: var(--dim); transform: translateY(-2px); }
+  .towerCard.selected { border-color: var(--green); box-shadow: 0 0 14px rgba(163,177,106,0.35); }
+  .towerCard.cant { opacity: 0.45; }
+  .towerCard .icon { width: 18px; height: 18px; border-radius: 50%; border: 2px solid rgba(0,0,0,0.4); }
+  .towerCard .name { font-size: 10.5px; font-weight: 600; text-align: center; line-height: 1.15; }
+  .towerCard .cost { font-size: 10.5px; color: var(--gold); }
+  #selPanel {
+    margin-left: auto; display: none; flex-direction: column; justify-content: center; gap: 5px;
+    background: var(--panel2); border: 1px solid var(--line);
+    border-radius: 10px; padding: 8px 12px; min-width: 350px;
+  }
+  #selPanel.open { display: flex; }
+  #selPanel .title { font-weight: 600; font-size: 13.5px; }
+  #selPanel .info { font-size: 11.5px; color: var(--dim); }
+  #selPanel .btns { display: flex; gap: 6px; align-items: stretch; }
+  .upBtn {
+    display: flex; flex-direction: column; gap: 1px;
+    text-align: left; font-size: 11px; padding: 5px 8px; flex: 1;
+  }
+  .upBtn .bname { font-weight: 700; font-size: 11.5px; }
+  .upBtn .bdesc { color: var(--dim); font-size: 10px; }
+  .upBtn .bcost { color: var(--gold); font-size: 11px; font-weight: 600; }
+  #upABtn { border-color: var(--blue); }
+  #upABtn .bname { color: var(--blue); }
+  #upBBtn { border-color: var(--gold); }
+  #upBBtn .bname { color: var(--gold); }
+  #sellBtn { border-color: var(--red) !important; color: var(--red) !important; font-size: 11.5px; }
+  #overlay {
+    position: absolute; inset: 0; display: none;
+    flex-direction: column; align-items: center; justify-content: center; gap: 14px;
+    background: rgba(20,23,16,0.9); text-align: center; z-index: 5;
+  }
+  #overlay.open { display: flex; }
+  #overlay h2 { font-size: 34px; letter-spacing: 3px; color: #c9d1a8; }
+  #overlay p { color: var(--dim); font-size: 16px; }
+  #overlay button { font-size: 16px; padding: 10px 24px; }
+  #toast {
+    position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    background: rgba(30,34,24,0.92); border: 1px solid var(--line);
+    border-radius: 8px; padding: 6px 16px; font-size: 14px;
+    opacity: 0; transition: opacity 0.25s; pointer-events: none; z-index: 6; white-space: nowrap;
+  }
+  #toast.show { opacity: 1; }
+  #loading {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    background: #1a1d16; color: var(--dim); font-size: 15px; z-index: 7;
+  }
+  #loading.done { display: none; }
+</style>
+</head>
+<body>
+<h1>Frontline Defense 3D</h1>
+
+<div id="hud">
+  <div class="stat gold">💵 <b id="gold">0</b></div>
+  <div class="stat lives">🏙️ <b id="lives">0</b></div>
+  <div class="stat wave">🎖️ <b id="waveNum">0</b></div>
+  <div class="stat land">🗺️ <b id="terr">0</b></div>
+  <div class="stat inbound">⚔️ <b id="nextRoutes">—</b></div>
+  <div class="spacer"></div>
+  <button id="muteBtn">🔊</button>
+  <button id="speedBtn">⏩ 1x</button>
+  <button id="startWave">▶ Start Wave 1</button>
+</div>
+
+<div id="gameWrap">
+  <div id="three"></div>
+  <div id="loading">Generating terrain…</div>
+  <div id="toast"></div>
+  <div id="overlay">
+    <h2 id="overlayTitle">CITY LOST</h2>
+    <p id="overlayMsg"></p>
+    <button id="restartBtn">↻ Redeploy</button>
+  </div>
+</div>
+<div id="hint">🖱️ Drag orbit · Scroll zoom · Right-drag or WASD to pan · 1–9 select · Shift multi-place · Space next wave · Your base sits on the lake · Territory grows outward · New roads join the main road further out as it does</div>
+
+<div id="bottomBar">
+  <div class="towerCard" data-tower="wall" title="Barricade. Enemies must stop and destroy it.">
+    <div class="icon" style="background:#9a9488;"></div><div class="name">Wall</div><div class="cost">💵30</div>
+  </div>
+  <div class="towerCard" data-tower="gunner" title="Fast, reliable bullet hose">
+    <div class="icon" style="background:#8b949e;"></div><div class="name">Machine Gun</div><div class="cost">💵50</div>
+  </div>
+  <div class="towerCard" data-tower="cannon" title="Explosive splash damage">
+    <div class="icon" style="background:#b0702c;"></div><div class="name">Artillery</div><div class="cost">💵90</div>
+  </div>
+  <div class="towerCard" data-tower="emp" title="Stalls engines and legs">
+    <div class="icon" style="background:#5aa7cf;"></div><div class="name">EMP Tower</div><div class="cost">💵70</div>
+  </div>
+  <div class="towerCard" data-tower="sniper" title="Very long range, huge single hits">
+    <div class="icon" style="background:#8a9a4e;"></div><div class="name">Sniper Nest</div><div class="cost">💵120</div>
+  </div>
+  <div class="towerCard" data-tower="camp" title="Soldiers chase and fight enemies">
+    <div class="icon" style="background:#7aa35a;"></div><div class="name">Army Camp</div><div class="cost">💵100</div>
+  </div>
+  <div class="towerCard" data-tower="factory" title="Builds armed trucks that block and fight">
+    <div class="icon" style="background:#a8845c;"></div><div class="name">Factory</div><div class="cost">💵150</div>
+  </div>
+  <div class="towerCard" data-tower="shipyard" title="Must be beside the river. Launches patrol boats.">
+    <div class="icon" style="background:#4f7ea3;"></div><div class="name">Shipyard</div><div class="cost">💵130</div>
+  </div>
+  <div class="towerCard" data-tower="airfield" title="Needs 3 flat cells. Plane strafes and bombs.">
+    <div class="icon" style="background:#b8b06a;"></div><div class="name">Airfield (3)</div><div class="cost">💵200</div>
+  </div>
+  <div id="selPanel">
+    <div class="title" id="selTitle">Building</div>
+    <div class="info" id="selInfo"></div>
+    <div class="btns">
+      <button id="upABtn" class="upBtn"><span class="bname"></span><span class="bdesc"></span><span class="bcost"></span></button>
+      <button id="upBBtn" class="upBtn"><span class="bname"></span><span class="bdesc"></span><span class="bcost"></span></button>
+      <button id="sellBtn">Sell</button>
+    </div>
+  </div>
+</div>
+
+<script src="lib/three.min.js"></script>
+<script>
+"use strict";
+
+// ============================================================
+// 1. MATH / NOISE
+// ============================================================
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+const lerp = (a, b, t) => a + (b - a) * t;
+function smoothstep(e0, e1, x) {
+  const t = clamp((x - e0) / (e1 - e0), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+function hash2(ix, iz) {
+  let h = ix * 374761393 + iz * 668265263;
+  h = (h ^ (h >> 13)) * 1274126177;
+  h = h ^ (h >> 16);
+  return ((h >>> 0) / 4294967296) * 2 - 1;
+}
+function valueNoise(x, z) {
+  const ix = Math.floor(x), iz = Math.floor(z);
+  const fx = x - ix, fz = z - iz;
+  const ux = fx * fx * (3 - 2 * fx), uz = fz * fz * (3 - 2 * fz);
+  const a = hash2(ix, iz), b = hash2(ix + 1, iz);
+  const c = hash2(ix, iz + 1), d = hash2(ix + 1, iz + 1);
+  return lerp(lerp(a, b, ux), lerp(c, d, ux), uz);
+}
+function fbm(x, z, oct) {
+  let sum = 0, amp = 1, freq = 1, norm = 0;
+  for (let i = 0; i < oct; i++) {
+    sum += valueNoise(x * freq, z * freq) * amp;
+    norm += amp;
+    amp *= 0.5; freq *= 2.03;
+  }
+  return sum / norm;
+}
+
+// ============================================================
+// 2. WORLD LAYOUT
+// ============================================================
+const COLS = 40, ROWS = 28;
+// Your base sits on the western shore of a lake, fed by the river.
+const CITY = { x: 27.5, z: 19 };
+const LAKE = { x: 33, z: 23, r: 4.3 };
+const WATER_Y = -0.75;
+
+function lakeRadiusAt(ang) {
+  return LAKE.r * (0.9 + 0.13 * valueNoise(Math.cos(ang) * 2.5 + 11, Math.sin(ang) * 2.5 + 7));
+}
+// Negative inside the lake, positive outside
+function lakeSDF(x, z) {
+  const dx = x - LAKE.x, dz = z - LAKE.z;
+  return Math.hypot(dx, dz) - lakeRadiusAt(Math.atan2(dz, dx));
+}
+
+// The river winds down out of the northern passes and empties into the lake.
+const RIVER_CTRL = [
+  [2, -17], [6, -9], [10, -2], [7, 5], [11, 11], [8, 16], [13, 20],
+  [18, 23], [24, 25], [29, 24.5], [30.8, 22.5], [29.5, 20.6],
+];
+
+// One main road runs into the base. Two more roads join it further out — the
+// second at J2, the third further down the road still, at J3.
+const JUNCTION2 = { x: 19, z: 18 };
+const JUNCTION3 = { x: 14.5, z: 16.2 };
+const MAIN_CTRL = [
+  [-16.5, 9.5], [-8, 11.5], [0, 14.5], [7, 12.5], [14.5, 16.2], [19, 18], [23.5, 18.2], [27.5, 19],
+];
+const BRANCH_CTRL = [
+  // Joins the main road at J2
+  [[22, -15], [19.5, -7], [23.5, -1], [19.5, 5], [23, 11], [19, 18]],
+  // Joins further out, at J3
+  [[2, 44], [6, 35], [11, 28], [8, 22], [14.5, 16.2]],
+];
+const ROUTE_UNLOCK = [1, 11, 17];
+const ROUTE_NAMES = ["Main road", "North road", "South road"];
+
+function sampleCurve(ctrl, step) {
+  const curve = new THREE.CatmullRomCurve3(ctrl.map(([x, z]) => new THREE.Vector3(x, 0, z)));
+  curve.curveType = "catmullrom";
+  curve.tension = 0.5;
+  let approx = 0;
+  for (let i = 0; i < ctrl.length - 1; i++) {
+    approx += Math.hypot(ctrl[i + 1][0] - ctrl[i][0], ctrl[i + 1][1] - ctrl[i][1]);
+  }
+  return curve.getSpacedPoints(Math.max(24, Math.round(approx / step))).map(v => ({ x: v.x, z: v.z }));
+}
+const MAIN_POLY = sampleCurve(MAIN_CTRL, 0.22);
+const BRANCH_POLYS = BRANCH_CTRL.map(c => sampleCurve(c, 0.22));
+const RIVER_POLY = sampleCurve(RIVER_CTRL, 0.22);
+
+function nearestIndex(poly, p) {
+  let best = 0, bd = Infinity;
+  for (let i = 0; i < poly.length; i++) {
+    const d = Math.hypot(poly[i].x - p.x, poly[i].z - p.z);
+    if (d < bd) { bd = d; best = i; }
+  }
+  return best;
+}
+// Split the main road at the two junctions. Because all three pieces come from
+// one sampled curve they share heights exactly — no seam where they meet.
+const IDX_J3 = nearestIndex(MAIN_POLY, JUNCTION3);
+const IDX_J2 = nearestIndex(MAIN_POLY, JUNCTION2);
+const MAIN_OUTER = MAIN_POLY.slice(0, IDX_J3 + 1);
+const MAIN_MID = MAIN_POLY.slice(IDX_J3, IDX_J2 + 1);
+const MAIN_INNER = MAIN_POLY.slice(IDX_J2);
+
+// Every drawn stretch of road, each rendered exactly once
+const ROAD_POLYS = [MAIN_OUTER, MAIN_MID, MAIN_INNER, BRANCH_POLYS[0], BRANCH_POLYS[1]];
+
+function outsideDist(x, z) {
+  return Math.hypot(Math.max(-1.5 - x, 0, x - (COLS + 1.5)),
+                    Math.max(-1.5 - z, 0, z - (ROWS + 1.5)));
+}
+// The road ends at the portal; the ground only begins closing over well past it,
+// so the last drawn stretch always has flat bench beneath its full width.
+const TUNNEL_OUT = 2.4;
+const ROAD_LIFT = 0.145, DECK_LIFT = 0.09;
+const CORRIDOR_FADE_A = 3.0, CORRIDOR_FADE_B = 7.0;
+function corridorOpen(x, z) {
+  return 1 - smoothstep(CORRIDOR_FADE_A, CORRIDOR_FADE_B, outsideDist(x, z));
+}
+
+function makePath(pts, ys, goalIdx) {
+  const segLen = [], cum = [0];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const l = Math.hypot(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
+    segLen.push(l);
+    cum.push(cum[i] + l);
+  }
+  const gi = goalIdx === undefined ? pts.length - 1 : goalIdx;
+  return { pts, ys, segLen, cum, total: cum[cum.length - 1], goalIdx: gi, goalDist: cum[gi] };
+}
+
+// ============================================================
+// 3. HEIGHT FIELD & DISTANCE FIELDS
+// ============================================================
+const HM = { x0: -20, z0: -20, w: 80, h: 68, res: 4 };
+HM.nx = HM.w * HM.res + 1;
+HM.nz = HM.h * HM.res + 1;
+HM.data = new Float32Array(HM.nx * HM.nz);
+
+function gridX(i) { return HM.x0 + i / HM.res; }
+function gridZ(j) { return HM.z0 + j / HM.res; }
+
+function makeField(polys, maxR, skip) {
+  const n = HM.nx * HM.nz;
+  const dist = new Float32Array(n).fill(maxR);
+  const near = new Int32Array(n).fill(-1);
+  const which = new Int32Array(n).fill(-1);
+  polys.forEach((poly, pi) => {
+    for (let s = 0; s < poly.length - 1; s++) {
+      if (skip && skip[pi] && skip[pi].has(s)) continue;
+      const a = poly[s], b = poly[s + 1];
+      const i0 = Math.max(0, Math.floor((Math.min(a.x, b.x) - maxR - HM.x0) * HM.res));
+      const i1 = Math.min(HM.nx - 1, Math.ceil((Math.max(a.x, b.x) + maxR - HM.x0) * HM.res));
+      const j0 = Math.max(0, Math.floor((Math.min(a.z, b.z) - maxR - HM.z0) * HM.res));
+      const j1 = Math.min(HM.nz - 1, Math.ceil((Math.max(a.z, b.z) + maxR - HM.z0) * HM.res));
+      const abx = b.x - a.x, abz = b.z - a.z;
+      const len2 = abx * abx + abz * abz || 1e-6;
+      for (let j = j0; j <= j1; j++) {
+        const pz = gridZ(j);
+        for (let i = i0; i <= i1; i++) {
+          const px = gridX(i);
+          const t = clamp(((px - a.x) * abx + (pz - a.z) * abz) / len2, 0, 1);
+          const d = Math.hypot(px - (a.x + abx * t), pz - (a.z + abz * t));
+          const k = j * HM.nx + i;
+          if (d < dist[k]) { dist[k] = d; near[k] = s; which[k] = pi; }
+        }
+      }
+    }
+  });
+  return { dist, near, which, maxR };
+}
+function sampleField(field, x, z) {
+  const fx = (x - HM.x0) * HM.res, fz = (z - HM.z0) * HM.res;
+  const i = clamp(Math.floor(fx), 0, HM.nx - 2);
+  const j = clamp(Math.floor(fz), 0, HM.nz - 2);
+  const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1);
+  const k = j * HM.nx + i;
+  const d = field.dist;
+  return lerp(lerp(d[k], d[k + 1], tx), lerp(d[k + HM.nx], d[k + HM.nx + 1], tx), tz);
+}
+function fieldNear(field, x, z) {
+  const i = clamp(Math.round((x - HM.x0) * HM.res), 0, HM.nx - 1);
+  const j = clamp(Math.round((z - HM.z0) * HM.res), 0, HM.nz - 1);
+  return field.near[j * HM.nx + i];
+}
+
+const RIVER_FIELD = makeField([RIVER_POLY], 5.5);
+// Bridges depend only on where a road meets the river, so they can be found
+// before the road distance field exists. Excluding their spans from that field
+// stops a neighbouring road's deck from stealing the bench under this one.
+const MAIN_BRIDGES = findBridges(MAIN_POLY, -1);
+const BRANCH_BRIDGES = BRANCH_POLYS.map((poly, bi) => findBridges(poly, 3 + bi));
+const ROAD_BRIDGES = [
+  sliceBridges(MAIN_BRIDGES, 0, IDX_J3, 0),
+  sliceBridges(MAIN_BRIDGES, IDX_J3, IDX_J2, 1),
+  sliceBridges(MAIN_BRIDGES, IDX_J2, MAIN_POLY.length - 1, 2),
+  BRANCH_BRIDGES[0], BRANCH_BRIDGES[1],
+];
+const ROAD_SKIP = ROAD_BRIDGES.map((brs, i) => {
+  const sk = new Set();
+  for (const br of brs) {
+    for (let seg = Math.max(0, br.i0 - 2); seg <= Math.min(ROAD_POLYS[i].length - 2, br.i1 + 2); seg++) sk.add(seg);
+  }
+  return sk;
+});
+const ROAD_FIELD = makeField(ROAD_POLYS, 5.0, ROAD_SKIP);
+
+function rawLand(x, z) {
+  let h = fbm(x * 0.045, z * 0.045, 4) * 1.6;
+  h += fbm(x * 0.014 + 31.7, z * 0.014 + 12.3, 3) * 2.7;
+  h += fbm(x * 0.16 + 7.3, z * 0.16 + 2.9, 2) * 0.28;
+  return h;
+}
+let LAND_MEAN = 0, LAND_STD = 1;
+(function calibrateLand() {
+  const vals = [];
+  for (let z = -1; z <= ROWS + 1; z += 0.5) {
+    for (let x = -1; x <= COLS + 1; x += 0.5) vals.push(rawLand(x, z));
+  }
+  const m = vals.reduce((a, b) => a + b, 0) / vals.length;
+  const v = vals.reduce((a, b) => a + (b - m) * (b - m), 0) / vals.length;
+  LAND_MEAN = m;
+  LAND_STD = Math.sqrt(v) || 1;
+})();
+const TARGET_LAND_Y = 1.35, TARGET_RELIEF = 0.62;
+
+function baseHeight(x, z) {
+  const norm = (rawLand(x, z) - LAND_MEAN) / LAND_STD;
+  const rim = smoothstep(0, 8, outsideDist(x, z));
+  let h = TARGET_LAND_Y + norm * TARGET_RELIEF;
+  h += rim * (9 + (fbm(x * 0.05 + 5, z * 0.05 + 9, 3) + 1) * 7);
+  h += rim * norm * 2.4;
+  return h;
+}
+
+function smoothProfile(arr, window, passes) {
+  let cur = arr;
+  for (let p = 0; p < passes; p++) {
+    const out = new Array(cur.length);
+    for (let i = 0; i < cur.length; i++) {
+      let sum = 0, n = 0;
+      for (let k = -window; k <= window; k++) { sum += cur[clamp(i + k, 0, cur.length - 1)]; n++; }
+      out[i] = sum / n;
+    }
+    cur = out;
+  }
+  return cur;
+}
+
+function riverSide(x, z) {
+  const seg = fieldNear(RIVER_FIELD, x, z);
+  if (seg < 0) return 0;
+  const a = RIVER_POLY[seg], b = RIVER_POLY[Math.min(seg + 1, RIVER_POLY.length - 1)];
+  return ((b.x - a.x) * (z - a.z) - (b.z - a.z) * (x - a.x)) > 0 ? 1 : -1;
+}
+function findBridges(poly, roadIdx) {
+  const out = [];
+  const sides = poly.map(p => riverSide(p.x, p.z));
+  const MAX_SPAN = 20;
+  for (let i = 1; i < poly.length; i++) {
+    if (sides[i] === 0 || sides[i - 1] === 0 || sides[i] === sides[i - 1]) continue;
+    if (sampleField(RIVER_FIELD, poly[i].x, poly[i].z) > 2.0) continue;
+    if (outsideDist(poly[i].x, poly[i].z) > CORRIDOR_FADE_A) continue;
+    if (lakeSDF(poly[i].x, poly[i].z) < 1.0) continue;      // no bridge inside the lake
+    if (out.some(b => i >= b.i0 - 4 && i <= b.i1 + 4)) continue;
+    let i0 = i, i1 = i;
+    while (i0 > 0 && i - i0 < MAX_SPAN &&
+           sampleField(RIVER_FIELD, poly[i0 - 1].x, poly[i0 - 1].z) < 2.05) i0--;
+    while (i1 < poly.length - 1 && i1 - i < MAX_SPAN &&
+           sampleField(RIVER_FIELD, poly[i1 + 1].x, poly[i1 + 1].z) < 2.05) i1++;
+    out.push({ i0, i1, roadIdx });
+  }
+  return out;
+}
+function raiseDecks(profile, bridges) {
+  for (const br of bridges) {
+    let deck = WATER_Y + 1.15;
+    for (let i = br.i0; i <= br.i1; i++) deck = Math.max(deck, profile[i]);
+    br.deck = deck;
+    const ramp = 16;
+    for (let i = Math.max(0, br.i0 - ramp); i <= Math.min(profile.length - 1, br.i1 + ramp); i++) {
+      const out = i < br.i0 ? br.i0 - i : i > br.i1 ? i - br.i1 : 0;
+      profile[i] = lerp(profile[i], deck, 1 - smoothstep(0, ramp, out));
+    }
+  }
+}
+// Where along a poly does it bore into the hillside? Needed before TUNNELS
+// exists, because the profile has to be levelled before the terrain is baked.
+// Cap how steeply a road may climb. Beyond about 1-in-4 the heightfield's 0.25
+// sampling cannot follow the grade and the ground pokes up through the surface —
+// and real roads switch back rather than climb that hard anyway.
+function limitGrade(profile, maxStep) {
+  for (let pass = 0; pass < 60; pass++) {
+    let changed = false;
+    for (let i = 0; i < profile.length - 1; i++) {
+      const d = profile[i + 1] - profile[i];
+      if (Math.abs(d) <= maxStep) continue;
+      const excess = (Math.abs(d) - maxStep) / 2 * Math.sign(d);
+      profile[i] += excess;
+      profile[i + 1] -= excess;
+      changed = true;
+    }
+    if (!changed) break;
+  }
+  return profile;
+}
+
+function portalIndexFor(poly) {
+  const n = poly.length;
+  if (outsideDist(poly[0].x, poly[0].z) > TUNNEL_OUT) {
+    let i = 0;
+    while (i < n - 1 && outsideDist(poly[i].x, poly[i].z) > TUNNEL_OUT) i++;
+    return { idx: i, inward: -1 };
+  }
+  if (outsideDist(poly[n - 1].x, poly[n - 1].z) > TUNNEL_OUT) {
+    let i = n - 1;
+    while (i > 0 && outsideDist(poly[i].x, poly[i].z) > TUNNEL_OUT) i--;
+    return { idx: i, inward: 1 };
+  }
+  return null;
+}
+// A tunnel is approached along a level cutting, not up a 1-in-1 ramp. Without
+// this the profile climbs with the mountain and the hillside punches up through
+// the last stretch of road surface.
+function levelPortalApproach(poly, profile) {
+  const t = portalIndexFor(poly);
+  if (!t) return profile;
+  const y = profile[t.idx];
+  const RUN = 40;
+  for (let k = 0; k <= RUN; k++) {
+    const i = t.idx - t.inward * k;                 // heading back into the map
+    if (i < 0 || i >= profile.length) break;
+    profile[i] = lerp(profile[i], y, 1 - smoothstep(0, RUN, k));
+  }
+  for (let k = 1; k < profile.length; k++) {
+    const i = t.idx + t.inward * k;                 // and dead level beyond it
+    if (i < 0 || i >= profile.length) break;
+    profile[i] = y - k * 0.003;
+  }
+  return limitGrade(profile, 0.06);
+}
+
+function holdProfileOffMap(poly, profile) {
+  let firstIn = -1, lastIn = -1;
+  for (let i = 0; i < poly.length; i++) {
+    if (outsideDist(poly[i].x, poly[i].z) < 0.5) { if (firstIn < 0) firstIn = i; lastIn = i; }
+  }
+  if (firstIn < 0) return profile;
+  for (let i = 0; i < firstIn; i++) profile[i] = profile[firstIn] - (firstIn - i) * 0.004;
+  for (let i = lastIn + 1; i < profile.length; i++) profile[i] = profile[lastIn] - (i - lastIn) * 0.004;
+  return profile;
+}
+
+// --- Main road: one profile for the whole thing, then split at the junctions ---
+let MAIN_PROFILE = limitGrade(smoothProfile(MAIN_POLY.map(p => baseHeight(p.x, p.z)), 16, 3), 0.04);
+raiseDecks(MAIN_PROFILE, MAIN_BRIDGES);
+const CITY_Y = MAIN_PROFILE[MAIN_PROFILE.length - 1];
+for (let i = 0; i < MAIN_POLY.length; i++) {
+  const d = Math.hypot(MAIN_POLY[i].x - CITY.x, MAIN_POLY[i].z - CITY.z);
+  MAIN_PROFILE[i] = lerp(MAIN_PROFILE[i], CITY_Y, 1 - smoothstep(2.5, 7.0, d));
+}
+// Level the main road across each junction so a joining branch meets it flush
+for (const [idx, J] of [[IDX_J2, JUNCTION2], [IDX_J3, JUNCTION3]]) {
+  const jy = MAIN_PROFILE[idx];
+  for (let i = 0; i < MAIN_POLY.length; i++) {
+    const d = Math.hypot(MAIN_POLY[i].x - J.x, MAIN_POLY[i].z - J.z);
+    MAIN_PROFILE[i] = lerp(MAIN_PROFILE[i], jy, 1 - smoothstep(1.2, 5.0, d));
+  }
+}
+holdProfileOffMap(MAIN_POLY, MAIN_PROFILE);
+levelPortalApproach(MAIN_POLY, MAIN_PROFILE);
+const J2_Y = MAIN_PROFILE[IDX_J2], J3_Y = MAIN_PROFILE[IDX_J3];
+
+function sliceBridges(bridges, lo, hi, roadIdx) {
+  const out = [];
+  for (const br of bridges) {
+    if (br.i1 < lo || br.i0 > hi) continue;
+    out.push({ i0: Math.max(0, br.i0 - lo), i1: Math.min(hi - lo, br.i1 - lo), roadIdx, deck: br.deck });
+  }
+  return out;
+}
+
+const ROADS = [
+  { poly: MAIN_OUTER, profile: MAIN_PROFILE.slice(0, IDX_J3 + 1), bridges: ROAD_BRIDGES[0], roadIdx: 0 },
+  { poly: MAIN_MID,   profile: MAIN_PROFILE.slice(IDX_J3, IDX_J2 + 1), bridges: ROAD_BRIDGES[1], roadIdx: 1 },
+  { poly: MAIN_INNER, profile: MAIN_PROFILE.slice(IDX_J2), bridges: ROAD_BRIDGES[2], roadIdx: 2 },
+];
+// Branch roads, each blended onto the height of the junction it meets
+BRANCH_POLYS.forEach((poly, bi) => {
+  const target = bi === 0 ? JUNCTION2 : JUNCTION3;
+  const profile = limitGrade(smoothProfile(poly.map(p => baseHeight(p.x, p.z)), 16, 3), 0.04);
+  const bridges = BRANCH_BRIDGES[bi];
+  raiseDecks(profile, bridges);
+  for (let i = 0; i < poly.length; i++) {
+    const d = Math.hypot(poly[i].x - target.x, poly[i].z - target.z);
+    const w = 1 - smoothstep(1.2, 5.0, d);
+    if (w <= 0) continue;
+    // Match the main road's height right where they run alongside each other,
+    // not just a single value at the junction itself.
+    profile[i] = lerp(profile[i], MAIN_PROFILE[nearestIndex(MAIN_POLY, poly[i])], w);
+  }
+  holdProfileOffMap(poly, profile);
+  levelPortalApproach(poly, profile);
+  ROADS.push({ poly, profile, bridges, roadIdx: 3 + bi });
+});
+const ROAD_PROFILES = ROADS.map(r => r.profile);
+const BRIDGES = [];
+for (const r of ROADS) for (const br of r.bridges) BRIDGES.push(br);
+
+const ROAD_PORTALS = ROADS.map(r => portalIndexFor(r.poly));
+
+// --- Bake the height field ---
+(function bakeHeights() {
+  for (let j = 0; j < HM.nz; j++) {
+    const z = gridZ(j);
+    for (let i = 0; i < HM.nx; i++) {
+      const x = gridX(i);
+      const k = j * HM.nx + i;
+      let h = baseHeight(x, z);
+
+      const open = corridorOpen(x, z);
+      const dRoad = ROAD_FIELD.dist[k];
+      const dRiver = RIVER_FIELD.dist[k];
+      const ri = ROAD_FIELD.which[k], seg = ROAD_FIELD.near[k];
+
+      // The river channel is sacred: a road embankment may reach the bank but
+      // never spill into the water, or it dams the river under its own bridge.
+      const channelCore = 1 - smoothstep(1.3, 2.05, dRiver);
+      let wRoad = 0, roadTarget = 0;
+      if (ri >= 0 && dRoad < 3.2) {
+        const prof = ROAD_PROFILES[ri];
+        roadTarget = prof[clamp(seg, 0, prof.length - 1)];
+        // Hold the bench right up to the tunnel mouth, then let the rock close
+        // over it within a couple of metres.
+        const portal = ROAD_PORTALS[ri];
+        let openRoad = open;
+        if (portal) {
+          const beyond = portal.inward === -1 ? portal.idx - seg : seg - portal.idx;
+          openRoad = 1 - smoothstep(1, 9, beyond);
+        }
+        wRoad = (1 - smoothstep(1.45, 3.2, dRoad)) * openRoad * (1 - channelCore);
+      }
+
+      // Water: the river channel, and the lake it empties into. They are
+      // combined by taking whichever cuts deeper — comparing weights instead
+      // lets the river's rising bank fill in the middle of the lake.
+      let wRiver = 0, riverTarget = 0;
+      if (dRiver < 6.2) {
+        riverTarget = WATER_Y - 0.85 + smoothstep(0, 3.4, dRiver) * 1.75;
+        wRiver = (1 - smoothstep(2.4, 6.2, dRiver)) * open;
+      }
+      const ls = lakeSDF(x, z);
+      let wLake = 0, lakeTarget = 0;
+      if (ls < 4.0) {
+        lakeTarget = WATER_Y - 1.6 + smoothstep(-3.2, 4.0, ls) * 3.0;
+        wLake = 1 - smoothstep(0.4, 4.0, ls);
+      }
+      const wWater = Math.max(wRiver, wLake);
+
+      // City plateau, but never at the cost of filling the water
+      const dCity = Math.hypot(x - CITY.x, z - CITY.z);
+      h = lerp(h, CITY_Y, (1 - smoothstep(3.0, 8.0, dCity)) * (1 - wWater));
+      const cut = 1 - wRoad;
+      h = Math.min(lerp(h, riverTarget, wRiver * cut), lerp(h, lakeTarget, wLake * cut));
+      h = lerp(h, roadTarget, wRoad);
+      HM.data[k] = h;
+    }
+  }
+})();
+
+function groundH(x, z) {
+  const fx = (x - HM.x0) * HM.res, fz = (z - HM.z0) * HM.res;
+  const i = clamp(Math.floor(fx), 0, HM.nx - 2);
+  const j = clamp(Math.floor(fz), 0, HM.nz - 2);
+  const tx = clamp(fx - i, 0, 1), tz = clamp(fz - j, 0, 1);
+  const k = j * HM.nx + i;
+  return lerp(lerp(HM.data[k], HM.data[k + 1], tx),
+              lerp(HM.data[k + HM.nx], HM.data[k + HM.nx + 1], tx), tz);
+}
+function slopeAt(x, z) {
+  const d = 0.5;
+  return Math.hypot(groundH(x + d, z) - groundH(x - d, z),
+                    groundH(x, z + d) - groundH(x, z - d)) / (2 * d);
+}
+
+// --- Village layout ---
+// The houses cluster between the base and the lake, deliberately leaving the
+// road approach open so you have somewhere to put your guns.
+const CITY_LOTS = (function () {
+  // Gather every spot around the base that a house could stand on, then take
+  // the ones furthest from the road so the verge stays free for building.
+  const cand = [];
+  for (let a = 0; a < 64; a++) {
+    for (let rIdx = 0; rIdx < 11; rIdx++) {
+      const ang = (a / 64) * Math.PI * 2;
+      const rad = 1.7 + rIdx * 0.4;
+      const x = CITY.x + Math.cos(ang) * rad, z = CITY.z + Math.sin(ang) * rad;
+      const dRoad = sampleField(ROAD_FIELD, x, z);
+      if (dRoad < 1.75) continue;                       // leave the verge clear
+      // The whole cell gets reserved, so that cell must not be a firing position
+      const cellDRoad = sampleField(ROAD_FIELD, Math.floor(x) + 0.5, Math.floor(z) + 0.5);
+      if (cellDRoad < 2.5) continue;
+      if (sampleField(RIVER_FIELD, x, z) < 2.6) continue;
+      if (lakeSDF(x, z) < 0.85) continue;
+      if (slopeAt(x, z) > 0.45) continue;
+      let lo = Infinity, hi = -Infinity;
+      for (let dx = -0.4; dx <= 0.4; dx += 0.2) {
+        for (let dz = -0.4; dz <= 0.4; dz += 0.2) {
+          const g = groundH(x + dx, z + dz);
+          if (g < lo) lo = g;
+          if (g > hi) hi = g;
+        }
+      }
+      if (hi - lo > 0.32) continue;
+      cand.push({ x, z, lo, hi, ang, dRoad, seed: a * 6 + rIdx });
+    }
+  }
+  // A cell within gun range of the road is a firing position — the town must not
+  // squat on those. Prefer ground the guns cannot use, then keep it compact.
+  const GUN_REACH = 2.5;
+  const rank = c => (c.dRoad > GUN_REACH ? 0 : 1) * 1000 + Math.hypot(c.x - CITY.x, c.z - CITY.z);
+  cand.sort((p, q) => rank(p) - rank(q));
+  const lots = [];
+  for (const c of cand) {
+    if (lots.length >= 11) break;
+    if (c.dRoad <= GUN_REACH && lots.length >= 5) continue;   // only crowd the verge if we must
+    if (lots.some(l => Math.hypot(l.x - c.x, l.z - c.z) < 0.78)) continue;
+    lots.push(c);
+  }
+  return lots;
+})();
+
+// --- Gameplay paths: each branch continues down the main road it joins ---
+const ROAD_PATHS = [
+  makePath(MAIN_POLY, MAIN_PROFILE),
+  makePath(BRANCH_POLYS[0].concat(MAIN_POLY.slice(IDX_J2 + 1)),
+           ROADS[3].profile.concat(MAIN_PROFILE.slice(IDX_J2 + 1))),
+  makePath(BRANCH_POLYS[1].concat(MAIN_POLY.slice(IDX_J3 + 1)),
+           ROADS[4].profile.concat(MAIN_PROFILE.slice(IDX_J3 + 1))),
+];
+const ROAD_PATH = ROAD_PATHS[0];
+
+// The river keeps flowing into the lake; ships have arrived once they reach the
+// harbour on the shore below the base.
+const RIVER_PATH = makePath(RIVER_POLY, RIVER_POLY.map(() => WATER_Y));
+const HARBOUR = RIVER_POLY[RIVER_POLY.length - 1];
+
+// How much road every route has in common with the main line
+const J2_DIST = makePath(MAIN_POLY.slice(IDX_J2), MAIN_PROFILE.slice(IDX_J2)).total;
+const J3_DIST = makePath(MAIN_POLY.slice(IDX_J3), MAIN_PROFILE.slice(IDX_J3)).total;
+
+// Roads that run off the map end at a tunnel mouth rather than fading out.
+const TUNNELS = [];
+for (const road of ROADS) {
+  const t = portalIndexFor(road.poly);
+  if (t) TUNNELS.push({ road, idx: t.idx, inward: t.inward });
+}
+function beyondPortal(road, i) {
+  for (const t of TUNNELS) {
+    if (t.road !== road) continue;
+    if (t.inward === -1 && i < t.idx) return true;
+    if (t.inward === 1 && i >= t.idx) return true;
+  }
+  return false;
+}
+
+function onBridge(x, z) {
+  let best = null, bd = 1.15;
+  for (const br of BRIDGES) {
+    const road = ROADS[br.roadIdx];
+    for (let i = br.i0; i <= br.i1; i++) {
+      const p = road.poly[i];
+      const d = Math.hypot(p.x - x, p.z - z);
+      if (d < bd) { bd = d; best = road.profile[i]; }
+    }
+  }
+  return best;
+}
+// Height of the drawn road surface at a point, or null if that point is off it
+function roadSurfaceH(x, z) {
+  const i = clamp(Math.round((x - HM.x0) * HM.res), 0, HM.nx - 1);
+  const j = clamp(Math.round((z - HM.z0) * HM.res), 0, HM.nz - 1);
+  const k = j * HM.nx + i;
+  if (ROAD_FIELD.dist[k] > 0.95) return null;
+  const ri = ROAD_FIELD.which[k], seg = ROAD_FIELD.near[k];
+  if (ri < 0) return null;
+  const prof = ROAD_PROFILES[ri];
+  return prof[clamp(seg, 0, prof.length - 1)] + ROAD_LIFT;
+}
+// The road sits slightly proud of the ground it is cut into, so anything
+// travelling it must ride on the tarmac rather than through it.
+function walkH(x, z) {
+  const b = onBridge(x, z);
+  if (b !== null) return b + DECK_LIFT;
+  const r = roadSurfaceH(x, z);
+  return r !== null ? Math.max(groundH(x, z), r) : groundH(x, z);
+}
+function nearestRoadPoint(x, z) {
+  let best = null, bd = Infinity;
+  for (const path of ROAD_PATHS) {
+    const p = nearestOnPath(path, x, z);
+    const d = (p.x - x) ** 2 + (p.z - z) ** 2;
+    if (d < bd) { bd = d; best = p; }
+  }
+  return best;
+}
+
+// ============================================================
+// 4. CELL CLASSIFICATION
+// ============================================================
+// Cells genuinely occupied by the base and its houses — everything else around
+// the town stays open to build on.
+const cityCells = new Set();
+(function markCityCells() {
+  const mark = (x, z, r) => {
+    for (let c = Math.floor(x - r); c <= Math.floor(x + r); c++) {
+      for (let rr = Math.floor(z - r); rr <= Math.floor(z + r); rr++) cityCells.add(c + "," + rr);
+    }
+  };
+  mark(CITY.x, CITY.z, 0.85);                       // HQ compound
+  for (const l of CITY_LOTS) cityCells.add(Math.floor(l.x) + "," + Math.floor(l.z));
+})();
+
+const CELL = [];
+for (let r = 0; r < ROWS; r++) {
+  for (let c = 0; c < COLS; c++) {
+    const x = c + 0.5, z = r + 0.5;
+    const dRoad = sampleField(ROAD_FIELD, x, z);
+    const dRiver = sampleField(RIVER_FIELD, x, z);
+    const h = groundH(x, z);
+    CELL[r * COLS + c] = {
+      c, r, x, z, h,
+      road: dRoad < 1.32,
+      water: dRiver < 1.36 || lakeSDF(x, z) < 0.6 || h < WATER_Y + 0.12,
+      nearRiver: dRiver < 2.6 || lakeSDF(x, z) < 2.2,
+      steep: slopeAt(x, z) > 1.02,
+      city: cityCells.has(c + "," + r),
+      distCity: Math.hypot(x - CITY.x, z - CITY.z),
+    };
+  }
+}
+function cellAt(c, r) {
+  if (c < 0 || c >= COLS || r < 0 || r >= ROWS) return null;
+  return CELL[r * COLS + c];
+}
+// Highest and lowest ground under a building's footprint, for its foundation
+function footprintGround(cells) {
+  let lo = Infinity, hi = -Infinity;
+  for (const [c, r] of cells) {
+    for (let dx = 0.12; dx <= 0.9; dx += 0.19) {
+      for (let dz = 0.12; dz <= 0.9; dz += 0.19) {
+        const h = groundH(c + dx, r + dz);
+        if (h < lo) lo = h;
+        if (h > hi) hi = h;
+      }
+    }
+  }
+  return { lo, hi };
+}
+
+// ============================================================
+// 5. RENDERER / SCENE
+// ============================================================
+const WIDTH = 1120, HEIGHT = 630;
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(WIDTH, HEIGHT);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+document.getElementById("three").appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x9ec2dd);
+scene.fog = new THREE.Fog(0x9ec2dd, 26, 68);
+
+const camera = new THREE.PerspectiveCamera(50, WIDTH / HEIGHT, 0.1, 160);
+
+scene.add(new THREE.HemisphereLight(0xcfe6ff, 0x44502e, 0.72));
+const sun = new THREE.DirectionalLight(0xfff2d8, 1.15);
+sun.position.set(30, 26, 6);
+sun.castShadow = true;
+sun.shadow.mapSize.set(2048, 2048);
+sun.shadow.camera.left = -20; sun.shadow.camera.right = 20;
+sun.shadow.camera.top = 16; sun.shadow.camera.bottom = -16;
+sun.shadow.camera.near = 2; sun.shadow.camera.far = 80;
+sun.shadow.bias = -0.0006;
+const sunTargetObj = new THREE.Object3D();
+sunTargetObj.position.set(15, 0, 11);
+scene.add(sunTargetObj);
+sun.target = sunTargetObj;
+scene.add(sun);
+
+function mat(color, rough = 0.85, metal = 0.08) {
+  return new THREE.MeshStandardMaterial({ color, roughness: rough, metalness: metal });
+}
+const MAT = {
+  olive: mat(0x55603a), oliveDark: mat(0x3f4a2e), oliveLight: mat(0x6b7245),
+  khaki: mat(0x8a7a52), khakiDark: mat(0x6d5f3e),
+  steel: mat(0x565c63, 0.55, 0.5), steelDark: mat(0x3a3e44, 0.5, 0.55), gunmetal: mat(0x2c3021, 0.6, 0.4),
+  concrete: mat(0x8a8b80, 0.95), concreteDark: mat(0x6e6f66, 0.95),
+  stone: mat(0x9a9488, 0.95), stoneDark: mat(0x76716a, 0.95),
+  wood: mat(0x6e5433, 0.9), woodLight: mat(0x8a6c42, 0.9), tent: mat(0x5d6544, 0.9),
+  tire: mat(0x1c1c19, 0.95), glass: mat(0x39424a, 0.2, 0.6),
+  skin: mat(0xc9a582, 0.9), helmet: mat(0x4b5320, 0.8),
+  hullGray: mat(0x5e676b, 0.7, 0.3), hullDark: mat(0x424a4e, 0.7, 0.3),
+  navy: mat(0x3e5a6e, 0.7, 0.25),
+  asphalt: mat(0x3c3e3a, 0.95),
+  brick: mat(0x7a5540, 0.9), plaster: mat(0xbdb49c, 0.92),
+  roofTile: mat(0x8c4f3c, 0.85), roofMetal: mat(0x707a70, 0.6, 0.35),
+  empGlow: new THREE.MeshStandardMaterial({ color: 0x5aa7cf, emissive: 0x2f7ea6, emissiveIntensity: 1.2, roughness: 0.4 }),
+  fire: new THREE.MeshStandardMaterial({ color: 0xffa030, emissive: 0xff6010, emissiveIntensity: 1.6, roughness: 0.5 }),
+  tracer: new THREE.MeshBasicMaterial({ color: 0xffe0a0 }),
+  shell: mat(0x3a3a34, 0.6, 0.3),
+  razor: mat(0xb9bcc0, 0.4, 0.7),
+  tunnelDark: mat(0x0d0f12, 1.0), stoneCap: mat(0x847e73, 0.95),
+  buoy: mat(0xd8622f, 0.7), buoyBand: mat(0xf0ede4, 0.8), rope: mat(0x6b5f47, 0.95),
+};
+
+function box(w, h, d, m) {
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+function cyl(rt, rb, h, m, seg = 12) {
+  const mesh = new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg), m);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+function sph(r, m, seg = 10) {
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(r, seg, seg), m);
+  mesh.castShadow = true;
+  return mesh;
+}
+function barrel(r, len, m, seg = 10) {
+  const g = new THREE.CylinderGeometry(r, r, len, seg);
+  g.rotateZ(-Math.PI / 2);
+  g.translate(len / 2, 0, 0);
+  const mesh = new THREE.Mesh(g, m);
+  mesh.castShadow = true;
+  return mesh;
+}
+// Triangular prism: ridge runs along x, apex points up. Baking the rotation into
+// the geometry avoids Euler-order surprises (the old roofs pointed sideways/down).
+function prism(r, len, m) {
+  const g = new THREE.CylinderGeometry(r, r, len, 3, 1);
+  g.rotateZ(-Math.PI / 2);
+  g.rotateX(-Math.PI / 2);
+  const mesh = new THREE.Mesh(g, m);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+// Wedge bow for boats: spans z (the beam), point aims +x (forward)
+function bowPrism(r, beam, m) {
+  const g = new THREE.CylinderGeometry(r, r, beam, 3, 1);
+  g.rotateX(Math.PI / 2);
+  g.rotateZ(Math.PI / 2);
+  const mesh = new THREE.Mesh(g, m);
+  mesh.castShadow = true;
+  return mesh;
+}
+function cone(r, h, m, seg = 8) {
+  const mesh = new THREE.Mesh(new THREE.ConeGeometry(r, h, seg), m);
+  mesh.castShadow = true;
+  return mesh;
+}
+
+// ============================================================
+// 6. TERRAIN MESH
+// ============================================================
+(function buildTerrainMesh() {
+  const nx = HM.nx, nz = HM.nz;
+  const positions = new Float32Array(nx * nz * 3);
+  const colors = new Float32Array(nx * nz * 3);
+  const col = new THREE.Color();
+  const TERRAIN_DIRT = new THREE.Color(0.42, 0.33, 0.21);
+  for (let j = 0; j < nz; j++) {
+    for (let i = 0; i < nx; i++) {
+      const k = j * nx + i;
+      const x = gridX(i), z = gridZ(j), h = HM.data[k];
+      positions[k * 3] = x; positions[k * 3 + 1] = h; positions[k * 3 + 2] = z;
+
+      const hL = HM.data[j * nx + Math.max(0, i - 1)];
+      const hR = HM.data[j * nx + Math.min(nx - 1, i + 1)];
+      const hD = HM.data[Math.max(0, j - 1) * nx + i];
+      const hU = HM.data[Math.min(nz - 1, j + 1) * nx + i];
+      const slope = Math.hypot(hR - hL, hU - hD) * HM.res * 0.5;
+      const n = fbm(x * 0.35, z * 0.35, 2);
+
+      if (h < WATER_Y + 0.3) {
+        const t = smoothstep(WATER_Y - 0.9, WATER_Y + 0.3, h);
+        col.setRGB(lerp(0.26, 0.47, t) + 0.03 * n, lerp(0.24, 0.40, t) + 0.03 * n, lerp(0.20, 0.27, t));
+      } else if (slope > 1.05) {
+        col.setRGB(0.35 + 0.05 * n, 0.32 + 0.04 * n, 0.28);
+      } else if (h > 5.0) {
+        const t = smoothstep(5.0, 9.5, h);
+        col.setRGB(lerp(0.36, 0.88, t), lerp(0.35, 0.90, t), lerp(0.31, 0.93, t));
+      } else {
+        const g = 0.5 + 0.5 * n - slope * 0.18;
+        col.setRGB(0.16 + g * 0.16, 0.30 + g * 0.22, 0.10 + g * 0.10);
+      }
+      // Blend the verge into dirt so the road never has a hard grass edge
+      const dR = ROAD_FIELD.dist[k];
+      if (dR < 2.8 && h > WATER_Y + 0.2) {
+        col.lerp(TERRAIN_DIRT, (1 - smoothstep(1.25, 2.8, dR)) * 0.88);
+      }
+      colors[k * 3] = col.r; colors[k * 3 + 1] = col.g; colors[k * 3 + 2] = col.b;
+    }
+  }
+  const indices = [];
+  for (let j = 0; j < nz - 1; j++) {
+    for (let i = 0; i < nx - 1; i++) {
+      const a = j * nx + i, b = a + 1, c = a + nx, d = c + 1;
+      indices.push(a, c, b, b, c, d);
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  const terrain = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.95, metalness: 0.02 }));
+  terrain.receiveShadow = true;
+  terrain.castShadow = true;
+  scene.add(terrain);
+})();
+
+// --- Ribbon helper (roads, water) ---
+// Width multiplier that pinches a ribbon to nothing where the mountains close in
+// 1 well inside the lake, 0 outside it
+function lakeMask(x, z) {
+  return 1 - smoothstep(-2.2, 0.4, lakeSDF(x, z));
+}
+// On a tight bend the inner edge of a wide ribbon overtakes itself and leaves
+// bow-tie notches. Cap the half-width by the local turning radius.
+function curvatureLimit(poly, baseHW) {
+  const lim = new Array(poly.length).fill(baseHW);
+  for (let i = 1; i < poly.length - 1; i++) {
+    const a = poly[i - 1], b = poly[i], c = poly[i + 1];
+    const v1x = b.x - a.x, v1z = b.z - a.z, v2x = c.x - b.x, v2z = c.z - b.z;
+    const l1 = Math.hypot(v1x, v1z) || 1e-6, l2 = Math.hypot(v2x, v2z) || 1e-6;
+    const dTheta = Math.acos(clamp((v1x * v2x + v1z * v2z) / (l1 * l2), -1, 1));
+    if (dTheta > 1e-4) lim[i] = Math.min(baseHW, ((l1 + l2) * 0.5 / dTheta) * 0.8);
+  }
+  // spread the restriction either side of the bend, then smooth it
+  const win = 6, out = lim.slice();
+  for (let i = 0; i < lim.length; i++) {
+    let m = lim[i];
+    for (let k = -win; k <= win; k++) m = Math.min(m, lim[clamp(i + k, 0, lim.length - 1)]);
+    out[i] = m;
+  }
+  return smoothProfile(out, 4, 2);
+}
+function corridorTaper(poly) {
+  // Pinch shut a little sooner than the terrain bench fades, so the ribbon is
+  // already hair-thin by the time the ground stops matching its profile.
+  return i => {
+    const p = poly[clamp(i, 0, poly.length - 1)];
+    return 1 - smoothstep(2.4, 6.5, outsideDist(p.x, p.z));
+  };
+}
+function buildRibbon(poly, ys, halfWidth, opts = {}) {
+  const positions = [], uvs = [], indices = [];
+  let cum = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const p = poly[i];
+    const pv = poly[Math.max(0, i - 1)], nx2 = poly[Math.min(poly.length - 1, i + 1)];
+    let dx = nx2.x - pv.x, dz = nx2.z - pv.z;
+    const l = Math.hypot(dx, dz) || 1;
+    dx /= l; dz /= l;
+    const px = -dz, pz = dx;
+    if (i > 0) cum += Math.hypot(p.x - poly[i - 1].x, p.z - poly[i - 1].z);
+    const hw = typeof halfWidth === "function" ? halfWidth(i) : halfWidth;
+    const y = ys[i] + (opts.lift || 0);
+    positions.push(p.x - px * hw, y, p.z - pz * hw);
+    positions.push(p.x + px * hw, y, p.z + pz * hw);
+    const v = cum * (opts.vScale || 1);
+    uvs.push(0, v, 1, v);
+  }
+  for (let i = 0; i < poly.length - 1; i++) {
+    if (opts.skip && opts.skip(i)) continue;
+    const a = i * 2, b = i * 2 + 1, c = (i + 1) * 2, d = (i + 1) * 2 + 1;
+    indices.push(a, b, c, b, d, c);   // wound face-up; the old order lit them from below
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  return geo;
+}
+
+// --- Road surfaces ---
+(function buildRoads() {
+  const rc = document.createElement("canvas");
+  rc.width = 64; rc.height = 128;
+  const rg = rc.getContext("2d");
+  rg.fillStyle = "#75603f"; rg.fillRect(0, 0, 64, 128);
+  for (let i = 0; i < 400; i++) {
+    rg.fillStyle = Math.random() < 0.5 ? "rgba(58,45,28,0.5)" : "rgba(140,116,80,0.4)";
+    rg.beginPath();
+    rg.arc(Math.random() * 64, Math.random() * 128, 0.6 + Math.random() * 2.2, 0, Math.PI * 2);
+    rg.fill();
+  }
+  rg.strokeStyle = "rgba(64,50,32,0.55)"; rg.lineWidth = 4;
+  for (const rx of [20, 44]) { rg.beginPath(); rg.moveTo(rx, 0); rg.lineTo(rx, 128); rg.stroke(); }
+  const rtex = new THREE.CanvasTexture(rc);
+  rtex.encoding = THREE.sRGBEncoding;
+  rtex.wrapS = rtex.wrapT = THREE.RepeatWrapping;
+  rtex.anisotropy = renderer.capabilities.getMaxAnisotropy();
+
+  for (const road of ROADS) {
+    const skipDraw = i => road.bridges.some(b => i >= b.i0 - 2 && i <= b.i1 + 1) || beyondPortal(road, i);
+    const limS = curvatureLimit(road.poly, 1.12), limR = curvatureLimit(road.poly, 0.82);
+    const shoulder = new THREE.Mesh(
+      buildRibbon(road.poly, road.profile, i => limS[clamp(i, 0, limS.length - 1)], { lift: 0.11, skip: skipDraw }),
+      new THREE.MeshStandardMaterial({ color: 0x5b4a30, roughness: 0.98, side: THREE.DoubleSide })
+    );
+    shoulder.receiveShadow = true;
+    shoulder.userData.flatSurface = "road-shoulder";
+    scene.add(shoulder);
+    const surface = new THREE.Mesh(
+      buildRibbon(road.poly, road.profile, i => limR[clamp(i, 0, limR.length - 1)], { lift: ROAD_LIFT, vScale: 0.55, skip: skipDraw }),
+      new THREE.MeshStandardMaterial({ map: rtex, roughness: 0.97, side: THREE.DoubleSide })
+    );
+    surface.receiveShadow = true;
+    surface.userData.flatSurface = "road-surface";
+    scene.add(surface);
+  }
+})();
+
+// --- River water ---
+let waterTex = null;
+(function buildWater() {
+  const wc = document.createElement("canvas");
+  wc.width = 64; wc.height = 256;
+  const wg = wc.getContext("2d");
+  wg.fillStyle = "#3d6478"; wg.fillRect(0, 0, 64, 256);
+  for (let i = 0; i < 60; i++) {
+    wg.strokeStyle = `rgba(255,255,255,${0.04 + Math.random() * 0.09})`;
+    wg.lineWidth = 1 + Math.random() * 1.6;
+    const y = Math.random() * 256;
+    wg.beginPath();
+    wg.moveTo(Math.random() * 20, y);
+    wg.bezierCurveTo(20, y + 6, 44, y - 6, 64 - Math.random() * 20, y + 3);
+    wg.stroke();
+  }
+  waterTex = new THREE.CanvasTexture(wc);
+  waterTex.encoding = THREE.sRGBEncoding;
+  waterTex.wrapS = waterTex.wrapT = THREE.RepeatWrapping;
+  const water = new THREE.Mesh(
+    buildRibbon(RIVER_POLY, RIVER_POLY.map(() => WATER_Y),
+      (function () {
+        const t = corridorTaper(RIVER_POLY);
+        const lim = curvatureLimit(RIVER_POLY, 1.28);
+        return i => { const j = clamp(i, 0, RIVER_POLY.length - 1); return lim[j] * t(i); };
+      })(),
+      {
+        vScale: 0.5,
+        // Stop at the shoreline. Drawing the channel on across the lake stacked
+        // two transparent surfaces and left a darker band.
+        skip: i => {
+          const a = RIVER_POLY[i], b = RIVER_POLY[i + 1];
+          return lakeSDF((a.x + b.x) / 2, (a.z + b.z) / 2) < -0.25;
+        },
+      }),
+    new THREE.MeshStandardMaterial({
+      map: waterTex, transparent: true, opacity: 0.86,
+      roughness: 0.16, metalness: 0.4, side: THREE.DoubleSide,
+    })
+  );
+  water.userData.flatSurface = "river";
+  scene.add(water);
+})();
+
+// --- The lake the river empties into ---
+(function buildLake() {
+  const seg = 96;
+  const positions = [LAKE.x, WATER_Y, LAKE.z], uvs = [3, 3], indices = [];
+  for (let i = 0; i <= seg; i++) {
+    const a = (i / seg) * Math.PI * 2;
+    const rr = lakeRadiusAt(a);
+    positions.push(LAKE.x + Math.cos(a) * rr, WATER_Y, LAKE.z + Math.sin(a) * rr);
+    uvs.push(3 + Math.cos(a) * 3, 3 + Math.sin(a) * 3);
+  }
+  for (let i = 1; i <= seg; i++) indices.push(0, i + 1, i);
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  geo.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+  geo.setIndex(indices);
+  geo.computeVertexNormals();
+  const lake = new THREE.Mesh(geo, new THREE.MeshStandardMaterial({
+    map: waterTex, transparent: true, opacity: 0.88,
+    roughness: 0.12, metalness: 0.45, side: THREE.DoubleSide,
+  }));
+  lake.userData.flatSurface = "lake";
+  scene.add(lake);
+  // Reeds and boulders around the shoreline
+  for (let i = 0; i < 46; i++) {
+    const a = (i / 46) * Math.PI * 2 + 0.3;
+    const rr = lakeRadiusAt(a) + 0.25 + (i % 3) * 0.18;
+    const x = LAKE.x + Math.cos(a) * rr, z = LAKE.z + Math.sin(a) * rr;
+    if (outsideDist(x, z) > 1) continue;
+    if (i % 3 === 0) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.13 + (i % 4) * 0.03), mat(0x7c776c, 0.95));
+      rock.castShadow = true; rock.scale.y = 0.65;
+      rock.position.set(x, groundH(x, z) + 0.04, z);
+      rock.rotation.set(i, i * 2, i * 3);
+      scene.add(rock);
+    } else {
+      for (let k = 0; k < 3; k++) {
+        const reed = cyl(0.008, 0.012, 0.34, mat(0x5f7a3a, 0.9), 4);
+        reed.position.set(x + (k - 1) * 0.07, groundH(x, z) + 0.17, z + ((i + k) % 3 - 1) * 0.06);
+        reed.rotation.z = ((i + k) % 5 - 2) * 0.09;
+        scene.add(reed);
+      }
+    }
+  }
+})();
+
+// --- Tunnel portals where the roads bore into the valley wall ---
+(function buildTunnels() {
+  for (const t of TUNNELS) {
+    const poly = t.road.poly, i = t.idx, y = t.road.profile[i];
+    const p = poly[i];
+    // inward === -1 means the road is drawn for i >= idx, so smaller indices lie
+    // outside the map — that is the direction the bore must head.
+    const back = poly[clamp(i + t.inward * 4, 0, poly.length - 1)];
+    const yaw = -Math.atan2(back.z - p.z, back.x - p.x);   // local +x heads into the hill
+
+    const g = new THREE.Group();
+    // Bore: a dark void driven into the rock, seen through the arch
+    const bore = box(5.0, 2.0, 2.02, MAT.tunnelDark);
+    bore.position.set(2.45, 0.98, 0);
+    bore.castShadow = false; bore.receiveShadow = false;
+    g.add(bore);
+    // Arch ring and piers
+    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.17, 8, 24, Math.PI), MAT.stone);
+    arch.rotation.y = Math.PI / 2;
+    arch.position.set(-0.02, 0.8, 0);
+    arch.castShadow = true; arch.receiveShadow = true;
+    g.add(arch);
+    for (const sz of [-1, 1]) {
+      const pier = box(0.44, 0.9, 0.36, MAT.stone);
+      pier.position.set(-0.02, 0.45, sz * 1.02);
+      g.add(pier);
+    }
+    // Parapet and keystone over the opening
+    const keystone = box(0.5, 0.34, 0.34, MAT.stoneCap);
+    keystone.position.set(-0.04, 1.9, 0);
+    g.add(keystone);
+    const parapet = box(0.42, 0.4, 2.9, MAT.stoneDark);
+    parapet.position.set(-0.02, 2.14, 0);
+    g.add(parapet);
+    // Wing walls retaining the cutting either side
+    for (const sz of [-1, 1]) {
+      const wing = box(0.32, 1.05, 1.7, MAT.stone);
+      wing.position.set(0.28, 0.5, sz * 1.85);
+      wing.rotation.y = sz * 0.32;
+      g.add(wing);
+    }
+    g.position.set(p.x, y, p.z);
+    g.rotation.y = yaw;
+    scene.add(g);
+  }
+})();
+
+// --- Bridges: the deck meets the road grade directly, no separate ramps ---
+(function buildBridges() {
+  for (const br of BRIDGES) {
+    const road = ROADS[br.roadIdx];
+    const i0 = Math.max(0, br.i0 - 2), i1 = Math.min(road.poly.length - 1, br.i1 + 2);
+    const sub = road.poly.slice(i0, i1 + 1);
+    const subY = road.profile.slice(i0, i1 + 1);
+    const deck = new THREE.Mesh(
+      buildRibbon(sub, subY, 0.88, { lift: DECK_LIFT }),
+      new THREE.MeshStandardMaterial({ color: 0x8a6c42, roughness: 0.9, side: THREE.DoubleSide })
+    );
+    deck.castShadow = true; deck.receiveShadow = true;
+    deck.userData.flatSurface = "bridge-deck";
+    scene.add(deck);
+
+    // Sample the deck once, with a correct across-the-deck normal at every point.
+    const nodes = [];
+    for (let i = i0; i <= i1; i++) {
+      const p = road.poly[i], y = road.profile[i];
+      const pv = road.poly[Math.max(0, i - 1)], nx2 = road.poly[Math.min(road.poly.length - 1, i + 1)];
+      let tx = nx2.x - pv.x, tz = nx2.z - pv.z;
+      const l = Math.hypot(tx, tz) || 1;
+      tx /= l; tz /= l;
+      nodes.push({ x: p.x, y, z: p.z, px: -tz, pz: tx, dir: Math.atan2(tz, tx) });
+    }
+    // Cross planks
+    for (let k = 0; k < nodes.length; k += 3) {
+      const q = nodes[k];
+      const plank = box(0.13, 0.03, 1.7, MAT.wood);
+      plank.position.set(q.x, q.y + 0.085, q.z);
+      plank.rotation.y = -q.dir;
+      scene.add(plank);
+    }
+    // Posts and unbroken handrails that follow the deck's own slope
+    for (const side of [-1, 1]) {
+      let prev = null;
+      for (let k = 0; k < nodes.length; k += 2) {
+        const q = nodes[k];
+        const cur = { x: q.x + q.px * side * 0.8, y: q.y, z: q.z + q.pz * side * 0.8 };
+        if (k % 6 === 0) {
+          const post = cyl(0.032, 0.038, 0.46, MAT.wood, 6);
+          post.position.set(cur.x, cur.y + 0.23, cur.z);
+          scene.add(post);
+        }
+        if (prev) {
+          const dx = cur.x - prev.x, dy = cur.y - prev.y, dz = cur.z - prev.z;
+          const len = Math.hypot(dx, dy, dz);
+          if (len > 1e-4) {
+            for (const railY of [0.44, 0.28]) {
+              const rail = box(len + 0.02, 0.042, 0.042, MAT.wood);
+              rail.position.set((cur.x + prev.x) / 2, (cur.y + prev.y) / 2 + railY, (cur.z + prev.z) / 2);
+              rail.rotation.y = -Math.atan2(dz, dx);
+              rail.rotation.z = Math.asin(clamp(dy / len, -1, 1));
+              scene.add(rail);
+            }
+          }
+        }
+        prev = cur;
+      }
+    }
+    // Piers down into the riverbed
+    for (let k = 0; k < nodes.length; k += 6) {
+      const q = nodes[k];
+      const bedY = groundH(q.x, q.z);
+      if (q.y - bedY <= 0.35) continue;
+      for (const side of [-1, 1]) {
+        const pier = cyl(0.075, 0.09, q.y - bedY, MAT.wood, 8);
+        pier.position.set(q.x + q.px * side * 0.58, (q.y + bedY) / 2, q.z + q.pz * side * 0.58);
+        scene.add(pier);
+      }
+    }
+  }
+})();
+
+// ============================================================
+// 7. CITY, SCENERY, TERRITORY
+// ============================================================
+// A concrete plinth that carries a building down to the ground it stands on.
+function addFoundation(group, wCells, lo, hi) {
+  const drop = Math.min(1.05, Math.max(0.12, hi - lo) + 0.22);
+  const w = wCells * 0.94, d = 0.94;
+  const plinth = box(w, drop, d, MAT.concreteDark);
+  plinth.position.y = -drop / 2;
+  group.add(plinth);
+  const cap = box(w + 0.06, 0.07, d + 0.06, MAT.concrete);
+  cap.position.y = -0.02;
+  group.add(cap);
+  const footing = box(w + 0.1, 0.09, d + 0.1, MAT.stoneDark);
+  footing.position.y = -drop;
+  group.add(footing);
+}
+
+// Gable roof: ridge along x, eaves sitting exactly on the wall top with a small
+// overhang. Built explicitly so pitch and overhang are independent.
+function gableRoof(w, d, rise, overhang, m) {
+  const hw = w / 2 + overhang, hd = d / 2 + overhang;
+  const v = [
+    -hw, 0, -hd,   hw, 0, -hd,   hw, 0, hd,   -hw, 0, hd,   // eaves
+    -hw, rise, 0,  hw, rise, 0,                              // ridge
+  ];
+  const idx = [
+    0, 4, 5, 0, 5, 1,      // back slope
+    3, 2, 5, 3, 5, 4,      // front slope
+    0, 3, 4,               // left gable
+    1, 5, 2,               // right gable
+  ];
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(v, 3));
+  geo.setIndex(idx);
+  geo.computeVertexNormals();
+  const mesh = new THREE.Mesh(geo, m);
+  mesh.castShadow = true; mesh.receiveShadow = true;
+  return mesh;
+}
+function buildHouse(w, d, h, wallMat, roofMat) {
+  const g = new THREE.Group();
+  const body = box(w, h, d, wallMat);
+  body.position.y = h / 2;
+  g.add(body);
+  const roof = gableRoof(w, d, d * 0.42, 0.045, roofMat);
+  roof.position.y = h;
+  g.add(roof);
+  const door = box(0.02, h * 0.5, w * 0.22, mat(0x4a3a28, 0.9));
+  door.position.set(w / 2, h * 0.25, 0);
+  g.add(door);
+  return g;
+}
+
+const cityGroup = new THREE.Group();
+scene.add(cityGroup);
+(function buildCity() {
+  const cy = groundH(CITY.x, CITY.z);
+  const hq = new THREE.Group();
+  const base = box(1.1, 0.55, 1.3, MAT.concreteDark); base.position.y = 0.28; hq.add(base);
+  const top = box(0.85, 0.25, 1.05, MAT.concrete); top.position.y = 0.68; hq.add(top);
+  const slit = box(0.05, 0.11, 0.6, mat(0x1a1a16)); slit.position.set(-0.56, 0.36, 0); hq.add(slit);
+  const pole = cyl(0.02, 0.02, 1.1, MAT.steelDark, 6); pole.position.set(0.3, 1.35, 0.4); hq.add(pole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.36, 0.22),
+    new THREE.MeshStandardMaterial({ color: 0xa33c30, side: THREE.DoubleSide, roughness: 0.9 }));
+  flag.position.set(0.49, 1.72, 0.4);
+  flag.castShadow = true;
+  hq.add(flag);
+  const hqG = footprintGround([[Math.floor(CITY.x), Math.floor(CITY.z)]]);
+  addFoundation(hq, 1.35, hqG.lo, cy);
+  hq.position.set(CITY.x, cy, CITY.z);
+  cityGroup.add(hq);
+
+  const wallMats = [MAT.plaster, MAT.brick, mat(0xc3b79a, 0.92)];
+  const roofMats = [MAT.roofTile, mat(0x6d4436, 0.85), MAT.roofMetal];
+  for (const lot of CITY_LOTS) {
+    const i = lot.seed;
+    const w = 0.5 + (i % 4) * 0.07, d = 0.42 + (i % 3) * 0.07, h = 0.3 + (i % 5) * 0.05;
+    const house = buildHouse(w, d, h, wallMats[i % 3], roofMats[i % 3]);
+    const drop = Math.min(0.45, Math.max(0.1, lot.hi - lot.lo) + 0.16);
+    const plinth = box(w + 0.12, drop, d + 0.12, MAT.concreteDark);
+    plinth.position.y = -drop / 2;
+    house.add(plinth);
+    house.position.set(lot.x, lot.hi, lot.z);
+    house.rotation.y = -lot.ang + Math.PI / 2;
+    cityGroup.add(house);
+  }
+
+  // Harbour jetty beside the city
+  const hp = HARBOUR;
+  const jetty = box(0.9, 0.06, 0.45, MAT.woodLight);
+  jetty.position.set(hp.x + 1.1, WATER_Y + 0.22, hp.z - 0.7);
+  cityGroup.add(jetty);
+  for (const jx of [-0.3, 0.3]) {
+    const pile = cyl(0.04, 0.04, 0.7, MAT.wood, 6);
+    pile.position.set(hp.x + 1.1 + jx, WATER_Y - 0.05, hp.z - 0.7);
+    cityGroup.add(pile);
+  }
+})();
+
+// Trees & rocks, cleared when you build on their cell
+const treeCells = new Map();
+(function scatterScenery() {
+  const candidates = [];
+  for (let r = 0; r < ROWS; r++) {
+    for (let c = 0; c < COLS; c++) {
+      const cell = cellAt(c, r);
+      if (cell.road || cell.water || cell.city) continue;
+      if (sampleField(ROAD_FIELD, cell.x, cell.z) < 2.1) continue;
+      if (sampleField(RIVER_FIELD, cell.x, cell.z) < 2.1) continue;
+      if (cell.distCity < 4.5) continue;
+      const density = valueNoise(c * 0.35 + 3.1, r * 0.35 + 7.7);
+      if (density < 0.3) continue;
+      candidates.push({ c, r, cell, density });
+    }
+  }
+  candidates.sort((a, b) => b.density - a.density);
+  for (const { c, r, cell } of candidates.slice(0, 210)) {
+    const meshes = [];
+    for (let k = 0; k < 2; k++) {
+      const tx = c + 0.25 + ((k * 37 + c * 13 + r * 7) % 50) / 100;
+      const tz = r + 0.25 + ((k * 53 + c * 29 + r * 17) % 50) / 100;
+      const gy = groundH(tx, tz);
+      if (gy < WATER_Y + 0.35) continue;
+      const tree = new THREE.Group();
+      const th = 0.6 + ((c * 7 + r * 11 + k) % 40) / 100;
+      const trunk = cyl(0.05, 0.075, th * 0.5, MAT.wood, 6);
+      trunk.position.y = th * 0.25;
+      tree.add(trunk);
+      const canopy = cone(0.36 * th, 0.95 * th, mat([0x2e441c, 0x3a5424, 0x466030][(c + k) % 3], 0.9), 8);
+      canopy.position.y = th * 0.82;
+      tree.add(canopy);
+      tree.position.set(tx, gy, tz);
+      tree.rotation.y = (c * 31 + r * 17 + k) % 6;
+      scene.add(tree);
+      meshes.push(tree);
+    }
+    if (cell.steep) {
+      const rock = new THREE.Mesh(new THREE.DodecahedronGeometry(0.17 + (c % 4) * 0.03), mat(0x787468, 0.95));
+      rock.castShadow = true; rock.receiveShadow = true;
+      rock.scale.y = 0.7;
+      rock.position.set(cell.x, groundH(cell.x, cell.z) + 0.05, cell.z);
+      rock.rotation.set(c, r, c + r);
+      scene.add(rock);
+      meshes.push(rock);
+    }
+    if (meshes.length) treeCells.set(c + "," + r, meshes);
+  }
+})();
+function clearScenery(c, r) {
+  const meshes = treeCells.get(c + "," + r);
+  if (!meshes) return;
+  for (const m of meshes) scene.remove(m);
+  treeCells.delete(c + "," + r);
+}
+
+// --- Territory border, and the build grid that follows the ground ---
+const TERRITORY = { radius: 7.5, step: 3.6, expandsAt: [5, 9, 13, 17, 21, 25] };
+const fenceGroup = new THREE.Group();
+scene.add(fenceGroup);
+const gridGroup = new THREE.Group();
+gridGroup.visible = false;
+scene.add(gridGroup);
+
+// Is this point on open water? The border switches to buoys there.
+function borderOnWater(x, z) {
+  return lakeSDF(x, z) < 0.35 || sampleField(RIVER_FIELD, x, z) < 1.45;
+}
+function rebuildFence() {
+  while (fenceGroup.children.length) fenceGroup.remove(fenceGroup.children[0]);
+  const R = TERRITORY.radius;
+  const n = Math.max(24, Math.round((2 * Math.PI * R) / 1.6));
+  let prev = null;
+  for (let i = 0; i <= n; i++) {
+    const ang = (i / n) * Math.PI * 2;
+    const x = CITY.x + Math.cos(ang) * R;
+    const z = CITY.z + Math.sin(ang) * R;
+    if (x < HM.x0 + 1 || x > HM.x0 + HM.w - 1 || z < HM.z0 + 1 || z > HM.z0 + HM.h - 1) { prev = null; continue; }
+    const wet = borderOnWater(x, z);
+    const y = wet ? WATER_Y : groundH(x, z);
+    if (i < n) {
+      if (wet) {
+        // Marker buoy rather than a fence post standing in the water
+        const float = sph(0.115, MAT.buoy, 9);
+        float.scale.y = 0.72;
+        float.position.set(x, WATER_Y + 0.02, z);
+        fenceGroup.add(float);
+        const band = cyl(0.117, 0.117, 0.05, MAT.buoyBand, 9);
+        band.position.set(x, WATER_Y + 0.04, z);
+        fenceGroup.add(band);
+        const mast = cyl(0.014, 0.014, 0.34, MAT.steelDark, 5);
+        mast.position.set(x, WATER_Y + 0.24, z);
+        fenceGroup.add(mast);
+        const lamp = sph(0.045, MAT.buoy, 7);
+        lamp.position.set(x, WATER_Y + 0.42, z);
+        fenceGroup.add(lamp);
+      } else {
+        const post = cyl(0.035, 0.045, 0.55, MAT.wood, 5);
+        post.position.set(x, y + 0.27, z);
+        fenceGroup.add(post);
+      }
+    }
+    if (prev) {
+      const dx = x - prev.x, dy = y - prev.y, dz = z - prev.z;
+      const len = Math.hypot(dx, dy, dz);
+      // A rope between buoys, wire between posts, and one strand where they meet
+      const heights = (wet && prev.wet) ? [0.13] : (wet || prev.wet) ? [0.3] : [0.34, 0.5];
+      const m = (wet && prev.wet) ? MAT.rope : MAT.steelDark;
+      for (const wy of heights) {
+        const wire = box(len, 0.02, 0.02, m);
+        wire.castShadow = false;
+        wire.position.set((x + prev.x) / 2, (y + prev.y) / 2 + wy, (z + prev.z) / 2);
+        wire.rotation.y = -Math.atan2(dz, dx);
+        wire.rotation.z = Math.asin(clamp(dy / len, -1, 1));
+        fenceGroup.add(wire);
+      }
+    }
+    prev = { x, y, z, wet };
+  }
+  rebuildGrid();
+}
+
+// Grid lines drape over the terrain instead of floating on a flat plane
+function rebuildGrid() {
+  while (gridGroup.children.length) {
+    const c = gridGroup.children[0];
+    gridGroup.remove(c);
+    if (c.geometry) c.geometry.dispose();
+  }
+  const verts = [];
+  const R = TERRITORY.radius + 1.5;
+  const c0 = Math.max(0, Math.floor(CITY.x - R)), c1 = Math.min(COLS, Math.ceil(CITY.x + R));
+  const r0 = Math.max(0, Math.floor(CITY.z - R)), r1 = Math.min(ROWS, Math.ceil(CITY.z + R));
+  const SUB = 4;
+  const inRange = (x, z) => Math.hypot(x - CITY.x, z - CITY.z) <= R;
+  for (let c = c0; c <= c1; c++) {
+    for (let r = r0; r < r1; r++) {
+      for (let s = 0; s < SUB; s++) {
+        const z0 = r + s / SUB, z1 = r + (s + 1) / SUB;
+        if (!inRange(c, z0) || !inRange(c, z1)) continue;
+        verts.push(c, groundH(c, z0) + 0.05, z0, c, groundH(c, z1) + 0.05, z1);
+      }
+    }
+  }
+  for (let r = r0; r <= r1; r++) {
+    for (let c = c0; c < c1; c++) {
+      for (let s = 0; s < SUB; s++) {
+        const x0 = c + s / SUB, x1 = c + (s + 1) / SUB;
+        if (!inRange(x0, r) || !inRange(x1, r)) continue;
+        verts.push(x0, groundH(x0, r) + 0.05, r, x1, groundH(x1, r) + 0.05, r);
+      }
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute("position", new THREE.Float32BufferAttribute(verts, 3));
+  const lines = new THREE.LineSegments(geo,
+    new THREE.LineBasicMaterial({ color: 0xe8ecd8, transparent: true, opacity: 0.28 }));
+  gridGroup.add(lines);
+}
+function inTerritory(cell) {
+  return cell && cell.distCity <= TERRITORY.radius;
+}
+
+// ============================================================
+// 8. PARTICLES
+// ============================================================
+function makeSpriteTex(inner, outer) {
+  const c = document.createElement("canvas");
+  c.width = c.height = 64;
+  const g = c.getContext("2d");
+  const grad = g.createRadialGradient(32, 32, 2, 32, 32, 30);
+  grad.addColorStop(0, inner); grad.addColorStop(1, outer);
+  g.fillStyle = grad; g.fillRect(0, 0, 64, 64);
+  const tex = new THREE.CanvasTexture(c);
+  tex.encoding = THREE.sRGBEncoding;
+  return tex;
+}
+const TEX_SOFT = makeSpriteTex("rgba(255,255,255,1)", "rgba(255,255,255,0)");
+const TEX_FIRE = makeSpriteTex("rgba(255,230,160,1)", "rgba(255,120,30,0)");
+
+let particles = [];
+function spawnParticle(kind, x, y, z, opts = {}) {
+  const isFire = kind === "flash" || kind === "spark";
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: isFire ? TEX_FIRE : TEX_SOFT,
+    color: opts.color || (kind === "smoke" ? 0x8d8d84 : 0xffffff),
+    transparent: true,
+    blending: isFire ? THREE.AdditiveBlending : THREE.NormalBlending,
+    depthWrite: false,
+  }));
+  sp.position.set(x, y, z);
+  const size = opts.size || 0.2;
+  sp.scale.set(size, size, 1);
+  scene.add(sp);
+  particles.push({
+    sprite: sp, kind,
+    vx: opts.vx || 0, vy: opts.vy || 0, vz: opts.vz || 0,
+    grow: opts.grow || 0,
+    life: opts.life || 0.5, maxLife: opts.life || 0.5,
+  });
+}
+function explosion(x, y, z, size) {
+  spawnParticle("flash", x, y + 0.2, z, { size: size * 1.6, grow: size * 5, life: 0.14 });
+  for (let i = 0; i < 9; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnParticle("smoke", x + Math.cos(a) * 0.06, y + 0.1 + Math.random() * 0.2, z + Math.sin(a) * 0.06, {
+      vx: Math.cos(a) * 0.5, vy: 0.5 + Math.random() * 0.7, vz: Math.sin(a) * 0.5,
+      size: 0.14 + Math.random() * 0.12, grow: 0.55, life: 0.7 + Math.random() * 0.5,
+    });
+  }
+  for (let i = 0; i < 8; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnParticle("spark", x, y + 0.15, z, {
+      vx: Math.cos(a) * (1 + Math.random() * 2), vy: 1 + Math.random() * 2, vz: Math.sin(a) * (1 + Math.random() * 2),
+      size: 0.08, life: 0.3,
+    });
+  }
+}
+function dustPuff(x, y, z, color = 0xa39a82) {
+  for (let i = 0; i < 5; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnParticle("smoke", x, y + 0.08, z, {
+      vx: Math.cos(a) * 0.4, vy: 0.25, vz: Math.sin(a) * 0.4,
+      size: 0.1, grow: 0.3, life: 0.5, color,
+    });
+  }
+}
+function splashRing(x, z) {
+  for (let i = 0; i < 6; i++) {
+    const a = Math.random() * Math.PI * 2;
+    spawnParticle("smoke", x, WATER_Y + 0.06, z, {
+      vx: Math.cos(a) * 0.7, vy: 0.4, vz: Math.sin(a) * 0.7,
+      size: 0.09, grow: 0.25, life: 0.4, color: 0xbcd8e4,
+    });
+  }
+}
+
+// ============================================================
+// 9. BUILDING DEFINITIONS
+// ============================================================
+const TOWER_TYPES = {
+  wall:     { name: "Wall",        cost: 30,  range: 0,    kind: "wall", w: 1 },
+  gunner:   { name: "Machine Gun", cost: 50,  range: 2.35, rate: 2.6, dmg: 9,  projSpeed: 11, kind: "shoot", w: 1 },
+  cannon:   { name: "Artillery",   cost: 90,  range: 2.20, rate: 0.8, dmg: 26, splash: 1.05, projSpeed: 5.5, kind: "shoot", w: 1 },
+  emp:      { name: "EMP Tower",   cost: 70,  range: 2.20, rate: 1.1, dmg: 5,  slow: 0.5, slowDur: 1.6, projSpeed: 7, kind: "shoot", w: 1 },
+  sniper:   { name: "Sniper Nest", cost: 120, range: 4.40, rate: 0.5, dmg: 65, projSpeed: 20, kind: "shoot", w: 1 },
+  camp:     { name: "Army Camp",   cost: 100, range: 0, kind: "base", w: 1 },
+  factory:  { name: "Factory",     cost: 150, range: 0, kind: "base", w: 1 },
+  shipyard: { name: "Shipyard",    cost: 130, range: 0, kind: "base", w: 1, needsRiver: true },
+  airfield: { name: "Airfield",    cost: 200, range: 0, kind: "air",  w: 3 },
+};
+const BRANCHES = {
+  wall:     [ { name: "Reinforce", desc: "Much tougher wall" },          { name: "Razor Wire", desc: "Hurts attackers" } ],
+  gunner:   [ { name: "Twin Barrels", desc: "+45% fire rate" },          { name: "AP Rounds", desc: "+65% damage" } ],
+  cannon:   [ { name: "Heavy Shells", desc: "+50% dmg, +25% blast" },    { name: "Auto-Loader", desc: "+40% fire rate" } ],
+  emp:      [ { name: "Overcharge", desc: "Stronger, longer stall" },    { name: "Capacitors", desc: "+80% dmg, +25% rate" } ],
+  sniper:   [ { name: ".50 Cal", desc: "+70% damage" },                  { name: "Spotter Team", desc: "+25% range, +40% rate" } ],
+  camp:     [ { name: "More Infantry", desc: "+1 soldier per camp" },    { name: "Infantry Strength", desc: "Tougher, deadlier troops" } ],
+  factory:  [ { name: "Turbo Engines", desc: "Faster trucks & output" }, { name: "Heavy Armament", desc: "Better truck artillery" } ],
+  shipyard: [ { name: "Expand Docks", desc: "+1 patrol boat" },          { name: "Naval Guns", desc: "Tougher, deadlier boats" } ],
+  airfield: [ { name: "Autocannons", desc: "Much stronger strafing" },   { name: "Bomb Racks", desc: "Plane drops bombs" } ],
+};
+const BRANCH_MAX = 2;
+
+const ENEMY_TYPES = {
+  grunt:   { hp: 32,  speed: 1.06, reward: 6,  radius: 0.16, melee: 8,  barY: 0.45, vehicle: false, lane: "road",  livesCost: 1, resist: 0 },
+  runner:  { hp: 20,  speed: 1.84, reward: 7,  radius: 0.22, melee: 14, barY: 0.42, vehicle: true,  lane: "road",  livesCost: 1, resist: 0 },
+  tank:    { hp: 110, speed: 0.69, reward: 14, radius: 0.26, melee: 18, barY: 0.5,  vehicle: true,  lane: "road",  livesCost: 1, resist: 0.30 },
+  boss:    { hp: 900, speed: 0.56, reward: 90, radius: 0.36, melee: 30, barY: 0.7,  vehicle: true,  lane: "road",  livesCost: 2, resist: 0.50 },
+  gunboat: { hp: 70,  speed: 0.85, reward: 15, radius: 0.3,  melee: 16, barY: 0.55, vehicle: true,  lane: "river", livesCost: 1, resist: 0.25 },
+  barge:   { hp: 280, speed: 0.5,  reward: 55, radius: 0.42, melee: 20, barY: 0.6,  vehicle: true,  lane: "river", livesCost: 2, resist: 0.45 },
+};
+
+function towerStats(t) {
+  const d = TOWER_TYPES[t.type];
+  const s = { range: d.range, rate: d.rate, dmg: d.dmg, splash: d.splash || 0, slow: d.slow || 0, slowDur: d.slowDur || 0 };
+  const a = t.a, b = t.b;
+  if (t.type === "gunner") { s.rate *= Math.pow(1.45, a); s.dmg *= Math.pow(1.65, b); }
+  if (t.type === "cannon") { s.dmg *= Math.pow(1.5, a); s.splash *= Math.pow(1.25, a); s.rate *= Math.pow(1.4, b); }
+  if (t.type === "emp")    { s.slow = 1 - (1 - s.slow) * Math.pow(0.6, a); s.slowDur *= Math.pow(1.35, a); s.dmg *= Math.pow(1.8, b); s.rate *= Math.pow(1.25, b); }
+  if (t.type === "sniper") { s.dmg *= Math.pow(1.7, a); s.range *= Math.pow(1.25, b); s.rate *= Math.pow(1.4, b); }
+  return s;
+}
+function wallConf(t) { return { hp: 180 * Math.pow(1.9, t.a), thorns: 14 * t.b }; }
+function unitConf(t) {
+  if (t.type === "camp") return {
+    domain: "land", max: 2 + t.a, hp: 60 * Math.pow(1.6, t.b), dmg: 12 * Math.pow(1.45, t.b),
+    speed: 1.5, respawn: 8, leash: 2.6, radius: 0.13,
+  };
+  if (t.type === "factory") return {
+    domain: "land", max: 2, hp: 150, dmg: 15 * Math.pow(1.6, t.b),
+    speed: 1.9 * Math.pow(1.3, t.a), respawn: 12 * Math.pow(0.65, t.a), leash: 3.1, radius: 0.22,
+  };
+  return {
+    domain: "water", max: 2 + t.a, hp: 150 * Math.pow(1.5, t.b), dmg: 30 * Math.pow(1.5, t.b),
+    speed: 1.7, respawn: 10, leash: 3.8, radius: 0.27,
+  };
+}
+function airConf(t) {
+  return {
+    strafe: 22 * Math.pow(1.8, t.a),
+    bombs: t.b > 0, bombDmg: 45 * t.b, bombSplash: 0.9 + 0.2 * t.b,
+    leash: 8.0, cooldown: 4,
+  };
+}
+function upgradeCost(t) {
+  return Math.floor(TOWER_TYPES[t.type].cost * 0.8 * (t.a + t.b + 1)) + 10;
+}
+
+// ============================================================
+// 10. MODEL BUILDERS
+// ============================================================
+function addPadAndBags(group) {
+  const pad = box(0.78, 0.06, 0.78, MAT.concreteDark);
+  pad.position.y = 0.03;
+  group.add(pad);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2 + 0.4;
+    const bag = sph(0.075, MAT.khaki, 8);
+    bag.scale.set(1.4, 0.7, 1);
+    bag.position.set(Math.cos(a) * 0.34, 0.1, Math.sin(a) * 0.34);
+    bag.rotation.y = -a;
+    group.add(bag);
+  }
+}
+
+function buildTower(type, a, b, ctx) {
+  const group = new THREE.Group();
+  const yaw = new THREE.Group();
+  let muzzleLen = 0.35, muzzleH = 0.3;
+
+  if (type === "gunner" || type === "cannon" || type === "emp" || type === "sniper") addPadAndBags(group);
+
+  if (type === "wall") {
+    const h = 0.42 + a * 0.16;
+    const t = 0.3 + a * 0.08;
+    const links = (ctx && ctx.links) || { x: false, z: false };
+    const len = 1.0;
+    const seg = box(links.x ? len : t, h, links.z ? len : t, a > 0 ? MAT.concrete : MAT.stone);
+    seg.position.y = h / 2;
+    group.add(seg);
+    // crenellations
+    const along = links.x ? "x" : links.z ? "z" : null;
+    for (let i = -1; i <= 1; i++) {
+      const m = box(0.16, 0.12, 0.16, MAT.stoneDark);
+      if (along === "x") m.position.set(i * 0.3, h + 0.06, 0);
+      else if (along === "z") m.position.set(0, h + 0.06, i * 0.3);
+      else { if (i !== 0) continue; m.position.set(0, h + 0.06, 0); }
+      group.add(m);
+    }
+    if (a > 1) {
+      const buttress = box(0.16, h * 0.7, 0.16, MAT.concreteDark);
+      buttress.position.set(0, h * 0.35, links.z ? 0.24 : 0);
+      group.add(buttress);
+    }
+    if (b > 0) {
+      for (let i = 0; i < 2 + b; i++) {
+        const coil = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.014, 5, 9), MAT.razor);
+        coil.castShadow = true;
+        coil.rotation.y = i;
+        const off = (i - (1 + b) / 2) * 0.26;
+        coil.position.set(along === "x" ? off : 0, h + 0.16, along === "z" ? off : 0);
+        group.add(coil);
+      }
+    }
+    muzzleLen = 0; muzzleH = h;
+  }
+
+  if (type === "gunner") {
+    const ped = cyl(0.09, 0.12, 0.2, MAT.steelDark, 10);
+    ped.position.y = 0.16;
+    group.add(ped);
+    yaw.position.y = 0.3;
+    yaw.add(box(0.2, 0.13, 0.16, MAT.steel));
+    const nBarrels = a > 0 ? 2 : 1;
+    const bR = b > 0 ? 0.026 : 0.018;
+    const bLen = 0.32 + b * 0.04;
+    for (let i = 0; i < nBarrels; i++) {
+      const off = nBarrels === 2 ? (i === 0 ? -0.035 : 0.035) : 0;
+      const bar = barrel(bR, bLen, MAT.gunmetal);
+      bar.position.set(0.08, 0, off);
+      yaw.add(bar);
+      if (b > 0) {
+        const brake = box(0.05, 0.05, 0.05, MAT.steelDark);
+        brake.position.set(0.08 + bLen - 0.03, 0, off);
+        yaw.add(brake);
+      }
+    }
+    if (a > 1 || b > 1) {
+      const shield = box(0.03, 0.18, 0.3, MAT.oliveDark);
+      shield.position.set(0.14, 0.02, 0);
+      yaw.add(shield);
+    }
+    const ammo = box(0.09, 0.08, 0.1, MAT.oliveDark);
+    ammo.position.set(-0.1, -0.01, 0.09);
+    yaw.add(ammo);
+    muzzleLen = 0.08 + bLen; muzzleH = 0.3;
+  }
+
+  if (type === "cannon") {
+    const base = box(0.34, 0.16, 0.34, MAT.oliveDark);
+    base.position.y = 0.12;
+    group.add(base);
+    yaw.position.y = 0.3;
+    yaw.add(box(0.26, 0.15, 0.24, MAT.olive));
+    const bR = 0.045 + a * 0.012;
+    const bLen = 0.44 + a * 0.08;
+    const bar = barrel(bR, bLen, MAT.gunmetal);
+    bar.position.set(0.05, 0.03, 0);
+    yaw.add(bar);
+    const muzzle = barrel(bR + 0.014, 0.07, MAT.steelDark);
+    muzzle.position.set(0.05 + bLen - 0.07, 0.03, 0);
+    yaw.add(muzzle);
+    if (a > 0) {
+      for (let i = 0; i < 2; i++) {
+        const ring = new THREE.Mesh(new THREE.TorusGeometry(bR + 0.012, 0.008, 6, 12), MAT.steelDark);
+        ring.rotation.y = Math.PI / 2;
+        ring.position.set(0.18 + i * 0.14, 0.03, 0);
+        ring.castShadow = true;
+        yaw.add(ring);
+      }
+    }
+    if (b > 0) {
+      for (let i = 0; i < 2 + b; i++) {
+        const shellBox = box(0.06, 0.05, 0.05, MAT.khakiDark);
+        shellBox.position.set(-0.14, -0.02 + i * 0.055, 0.13);
+        yaw.add(shellBox);
+      }
+    }
+    muzzleLen = 0.05 + bLen; muzzleH = 0.33;
+  }
+
+  if (type === "emp") {
+    const h = 0.4 + (a + b) * 0.04;
+    const pylon = cyl(0.05, 0.09, h, MAT.steel, 8);
+    pylon.position.y = h / 2 + 0.06;
+    group.add(pylon);
+    const orb = sph(0.08 + a * 0.012, MAT.empGlow, 14);
+    orb.position.y = h + 0.12;
+    group.add(orb);
+    const coils = [];
+    for (let i = 0; i <= a; i++) {
+      const coil = new THREE.Mesh(new THREE.TorusGeometry(0.13 + i * 0.045, 0.012, 6, 20), MAT.empGlow);
+      coil.position.y = h + 0.12;
+      coil.castShadow = true;
+      group.add(coil);
+      coils.push(coil);
+    }
+    group.userData.coils = coils;
+    if (b > 0) {
+      for (let i = 0; i < 2 * b; i++) {
+        const ang = (i / (2 * b)) * Math.PI * 2;
+        const cap = cyl(0.035, 0.035, 0.14, MAT.steelDark, 8);
+        cap.position.set(Math.cos(ang) * 0.22, 0.13, Math.sin(ang) * 0.22);
+        group.add(cap);
+        const capTop = sph(0.02, MAT.empGlow, 6);
+        capTop.position.set(Math.cos(ang) * 0.22, 0.21, Math.sin(ang) * 0.22);
+        group.add(capTop);
+      }
+    }
+    muzzleLen = 0; muzzleH = h + 0.12;
+  }
+
+  if (type === "sniper") {
+    const legH = 0.52;
+    for (const [lx, lz] of [[-0.16, -0.16], [0.16, -0.16], [-0.16, 0.16], [0.16, 0.16]]) {
+      const leg = cyl(0.022, 0.028, legH, MAT.wood, 7);
+      leg.position.set(lx, legH / 2 + 0.05, lz);
+      group.add(leg);
+    }
+    const platform = box(0.44, 0.05, 0.44, MAT.wood);
+    platform.position.y = legH + 0.07;
+    group.add(platform);
+    const wall = box(0.4, 0.12, 0.4, MAT.khakiDark);
+    wall.position.y = legH + 0.16;
+    group.add(wall);
+    const wallTop = box(0.42, 0.03, 0.42, MAT.wood);
+    wallTop.position.y = legH + 0.23;
+    group.add(wallTop);
+    yaw.position.y = legH + 0.26;
+    const shooter = sph(0.05, MAT.helmet, 8);
+    shooter.position.set(-0.04, 0.04, 0);
+    yaw.add(shooter);
+    const bLen = 0.42 + a * 0.06;
+    const bar = barrel(a > 0 ? 0.02 : 0.014, bLen, MAT.gunmetal);
+    bar.position.set(0, 0.02, 0);
+    yaw.add(bar);
+    const scope = cyl(0.016, 0.016, 0.06, MAT.steelDark, 6);
+    scope.rotation.z = Math.PI / 2;
+    scope.position.set(0.1, 0.055, 0);
+    yaw.add(scope);
+    if (a > 0) {
+      const bipod = box(0.02, 0.06, 0.08, MAT.steelDark);
+      bipod.position.set(0.25, -0.02, 0);
+      yaw.add(bipod);
+    }
+    if (b > 0) {
+      const spotter = sph(0.045, MAT.helmet, 8);
+      spotter.position.set(-0.12, legH + 0.29, 0.1);
+      group.add(spotter);
+      const ant = cyl(0.006, 0.006, 0.3, MAT.steelDark, 5);
+      ant.position.set(-0.17, legH + 0.42, -0.14);
+      group.add(ant);
+      if (b > 1) {
+        const roof = box(0.5, 0.03, 0.5, MAT.tent);
+        roof.position.y = legH + 0.52;
+        group.add(roof);
+        for (const [px2, pz2] of [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]]) {
+          const post = cyl(0.012, 0.012, 0.28, MAT.wood, 6);
+          post.position.set(px2, legH + 0.38, pz2);
+          group.add(post);
+        }
+      }
+    }
+    muzzleLen = bLen; muzzleH = legH + 0.28;
+  }
+
+  if (type === "camp") {
+    const ground = cyl(0.42, 0.42, 0.03, mat(0x5a5138, 0.95), 20);
+    ground.position.y = 0.015;
+    group.add(ground);
+    const tentSpots = [[-0.16, -0.14, 0.5], [0.18, -0.16, -0.6], [-0.02, 0.2, 2.2]];
+    for (let i = 0; i <= Math.min(a, 2); i++) {
+      const [tx, tz, rot] = tentSpots[i];
+      const tent = prism(0.14, 0.26, MAT.tent);
+      tent.rotation.y = rot;
+      tent.position.set(tx, 0, tz);
+      group.add(tent);
+    }
+    const fire = new THREE.Group();
+    for (let i = 0; i < 6; i++) {
+      const ang = (i / 6) * Math.PI * 2;
+      const stone = sph(0.025, mat(0x787468, 0.95), 6);
+      stone.position.set(Math.cos(ang) * 0.07, 0.02, Math.sin(ang) * 0.07);
+      fire.add(stone);
+    }
+    const flame = cone(0.035, 0.09, MAT.fire, 7);
+    flame.position.y = 0.06;
+    fire.add(flame);
+    group.userData.flame = flame;
+    fire.position.set(0.16, 0, 0.18);
+    group.add(fire);
+    const pole = cyl(0.012, 0.012, 0.55, MAT.wood, 6);
+    pole.position.set(-0.28, 0.28, 0.22);
+    group.add(pole);
+    const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.11),
+      new THREE.MeshStandardMaterial({ color: 0x7aa35a, side: THREE.DoubleSide, roughness: 0.9 }));
+    flag.position.set(-0.19, 0.5, 0.22);
+    flag.castShadow = true;
+    group.add(flag);
+    const crate = box(0.1, 0.1, 0.1, MAT.wood);
+    crate.position.set(0.28, 0.05, -0.2);
+    crate.rotation.y = 0.5;
+    group.add(crate);
+    if (b > 0) {
+      const rack = box(0.16, 0.14, 0.02, MAT.wood);
+      rack.position.set(-0.05, 0.1, -0.3);
+      group.add(rack);
+      for (let i = 0; i < 3; i++) {
+        const rifle = box(0.012, 0.16, 0.012, MAT.gunmetal);
+        rifle.position.set(-0.1 + i * 0.05, 0.11, -0.29);
+        rifle.rotation.z = 0.15;
+        group.add(rifle);
+      }
+      if (b > 1) {
+        const armor = box(0.09, 0.12, 0.04, MAT.steelDark);
+        armor.position.set(0.3, 0.16, 0.02);
+        group.add(armor);
+      }
+    }
+  }
+
+  if (type === "factory") {
+    const hall = box(0.66, 0.32, 0.5, MAT.brick);
+    hall.position.y = 0.16;
+    group.add(hall);
+    for (let i = 0; i < 3; i++) {
+      const tooth = prism(0.12, 0.2, MAT.roofMetal);
+      tooth.rotation.y = Math.PI / 2;
+      tooth.position.set(-0.2 + i * 0.2, 0.32, 0);
+      group.add(tooth);
+    }
+    const chimney = cyl(0.045, 0.055, 0.4, MAT.brick, 8);
+    chimney.position.set(-0.24, 0.5, -0.16);
+    group.add(chimney);
+    group.userData.chimney = { x: -0.24, y: 0.72, z: -0.16 };
+    const door = box(0.02, 0.18, 0.2, MAT.steelDark);
+    door.position.set(0.34, 0.1, 0.08);
+    group.add(door);
+    const tb = box(0.24, 0.08, 0.14, MAT.olive);
+    tb.position.set(0.18, 0.08, -0.33);
+    group.add(tb);
+    if (a > 0) {
+      const gear = new THREE.Mesh(new THREE.TorusGeometry(0.07, 0.02, 6, 12), MAT.steel);
+      gear.position.set(-0.3, 0.14, 0.3);
+      gear.castShadow = true;
+      group.add(gear);
+    }
+    if (b > 0) {
+      for (let i = 0; i < 2; i++) {
+        const gunStack = barrel(0.02, 0.3, MAT.gunmetal);
+        gunStack.position.set(-0.05, 0.06 + i * 0.04, 0.34);
+        gunStack.rotation.z = i * 0.06;
+        group.add(gunStack);
+      }
+    }
+  }
+
+  if (type === "shipyard") {
+    const dock = box(0.7, 0.08, 0.55, MAT.woodLight);
+    dock.position.y = 0.06;
+    group.add(dock);
+    const shed = box(0.34, 0.24, 0.3, MAT.navy);
+    shed.position.set(-0.14, 0.22, -0.08);
+    group.add(shed);
+    const roof = prism(0.2, 0.36, MAT.roofMetal);
+    roof.rotation.y = Math.PI / 2;
+    roof.position.set(-0.14, 0.34, -0.08);
+    group.add(roof);
+    const cranePole = cyl(0.025, 0.03, 0.5, MAT.steel, 8);
+    cranePole.position.set(0.2, 0.3, 0.14);
+    group.add(cranePole);
+    const craneArm = box(0.4, 0.03, 0.03, MAT.steel);
+    craneArm.position.set(0.33, 0.52, 0.14);
+    group.add(craneArm);
+    const hook = cyl(0.006, 0.006, 0.16, MAT.steelDark, 5);
+    hook.position.set(0.48, 0.43, 0.14);
+    group.add(hook);
+    for (let i = 0; i < 2 + a; i++) {
+      const crate = box(0.09, 0.09, 0.09, MAT.wood);
+      crate.position.set(0.05 + i * 0.11, 0.13, 0.22);
+      crate.rotation.y = i;
+      group.add(crate);
+    }
+    if (b > 0) {
+      const gun = barrel(0.018, 0.24, MAT.gunmetal);
+      gun.position.set(-0.2, 0.12, 0.2);
+      gun.rotation.y = 0.6;
+      group.add(gun);
+    }
+  }
+
+  if (type === "airfield") {
+    const strip = box(2.86, 0.04, 0.8, MAT.asphalt);
+    strip.position.y = 0.02;
+    group.add(strip);
+    for (let i = 0; i < 7; i++) {
+      const dash = box(0.16, 0.006, 0.04, mat(0xd8d8cc, 0.9));
+      dash.position.set(-1.15 + i * 0.38, 0.045, 0);
+      dash.castShadow = false;
+      group.add(dash);
+    }
+    const hangar = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.22, 0.22, 0.5, 12, 1, false, 0, Math.PI), MAT.roofMetal);
+    hangar.rotation.z = Math.PI / 2;
+    hangar.rotation.y = Math.PI / 2;
+    hangar.position.set(-1.05, 0.02, -0.55);
+    hangar.castShadow = true;
+    group.add(hangar);
+    const wsPole = cyl(0.012, 0.012, 0.4, MAT.steel, 6);
+    wsPole.position.set(1.25, 0.2, -0.5);
+    group.add(wsPole);
+    const sock = cone(0.05, 0.16, mat(0xd97742, 0.9), 8);
+    sock.rotation.z = -Math.PI / 2;
+    sock.position.set(1.35, 0.38, -0.5);
+    group.add(sock);
+    if (a > 0) {
+      for (let i = 0; i < 2 * a; i++) {
+        const ammo = box(0.08, 0.06, 0.06, MAT.oliveDark);
+        ammo.position.set(-0.6 + i * 0.1, 0.05, -0.52);
+        group.add(ammo);
+      }
+    }
+    if (b > 0) {
+      for (let i = 0; i < 3; i++) {
+        const bomb = sph(0.035, MAT.steelDark, 8);
+        bomb.scale.x = 2;
+        bomb.position.set(0.3 + i * 0.09, 0.06, -0.55);
+        group.add(bomb);
+      }
+    }
+  }
+
+  group.add(yaw);
+  return { group, yaw, muzzleLen, muzzleH };
+}
+
+function buildSoldierMesh(armored) {
+  const g = new THREE.Group();
+  const legL = box(0.035, 0.11, 0.04, MAT.olive);
+  const legR = box(0.035, 0.11, 0.04, MAT.olive);
+  legL.geometry.translate(0, -0.045, 0); legL.position.set(0, 0.1, -0.028);
+  legR.geometry.translate(0, -0.045, 0); legR.position.set(0, 0.1, 0.028);
+  g.add(legL, legR);
+  const torso = box(0.07, 0.11, 0.1, armored ? MAT.steelDark : MAT.oliveLight);
+  torso.position.y = 0.16;
+  g.add(torso);
+  const armL = box(0.03, 0.09, 0.03, MAT.olive); armL.geometry.translate(0, -0.035, 0); armL.position.set(0.01, 0.2, -0.065);
+  const armR = box(0.03, 0.09, 0.03, MAT.olive); armR.geometry.translate(0, -0.035, 0); armR.position.set(0.01, 0.2, 0.065);
+  g.add(armL, armR);
+  const head = sph(0.035, MAT.skin, 8); head.position.y = 0.25; g.add(head);
+  const helm = sph(0.042, armored ? MAT.steelDark : MAT.helmet, 8);
+  helm.scale.y = 0.72; helm.position.y = 0.265; g.add(helm);
+  const rifle = box(0.14, 0.018, 0.018, MAT.gunmetal);
+  rifle.position.set(0.07, 0.18, 0.05);
+  g.add(rifle);
+  return { group: g, anim: { legs: [legL, legR], swing: [armL, armR], wheels: [] } };
+}
+
+function buildTruckMesh(heavy) {
+  const g = new THREE.Group();
+  const anim = { legs: [], swing: [], wheels: [] };
+  const bed = box(0.44, 0.11, 0.26, MAT.olive);
+  bed.position.y = 0.15;
+  g.add(bed);
+  const cab = box(0.14, 0.1, 0.24, MAT.oliveDark);
+  cab.position.set(0.17, 0.26, 0);
+  g.add(cab);
+  const windshield = box(0.02, 0.07, 0.2, MAT.glass);
+  windshield.position.set(0.11, 0.27, 0);
+  g.add(windshield);
+  const mount = cyl(0.03, 0.04, 0.08, MAT.steelDark, 8);
+  mount.position.set(-0.08, 0.24, 0);
+  g.add(mount);
+  const gun = barrel(heavy ? 0.024 : 0.016, heavy ? 0.34 : 0.26, MAT.gunmetal);
+  gun.position.set(-0.08, 0.28, 0);
+  g.add(gun);
+  if (heavy) {
+    const shieldPlate = box(0.02, 0.1, 0.16, MAT.steelDark);
+    shieldPlate.position.set(-0.02, 0.28, 0);
+    g.add(shieldPlate);
+  }
+  for (const [wx, wz] of [[0.15, -0.16], [0.15, 0.16], [-0.15, -0.16], [-0.15, 0.16]]) {
+    const wg = new THREE.CylinderGeometry(0.07, 0.07, 0.05, 12);
+    wg.rotateX(Math.PI / 2);
+    const wheel = new THREE.Mesh(wg, MAT.tire);
+    wheel.castShadow = true;
+    wheel.position.set(wx, 0.07, wz);
+    g.add(wheel);
+    anim.wheels.push(wheel);
+  }
+  return { group: g, anim };
+}
+
+function buildBoatMesh(heavy) {
+  const g = new THREE.Group();
+  const anim = { legs: [], swing: [], wheels: [] };
+  const hull = box(0.5, 0.1, 0.22, MAT.navy);
+  hull.position.y = 0.06;
+  g.add(hull);
+  const bow = bowPrism(0.11, 0.22, MAT.navy);
+  bow.position.set(0.28, 0.06, 0);
+  g.add(bow);
+  const cabin = box(0.14, 0.1, 0.14, MAT.hullGray);
+  cabin.position.set(-0.06, 0.16, 0);
+  g.add(cabin);
+  const gun = barrel(heavy ? 0.022 : 0.015, heavy ? 0.3 : 0.22, MAT.gunmetal);
+  gun.position.set(0.1, 0.16, 0);
+  g.add(gun);
+  const flagPole = cyl(0.006, 0.006, 0.14, MAT.steelDark, 5);
+  flagPole.position.set(-0.22, 0.2, 0);
+  g.add(flagPole);
+  const flag = new THREE.Mesh(new THREE.PlaneGeometry(0.08, 0.05),
+    new THREE.MeshStandardMaterial({ color: 0x7aa35a, side: THREE.DoubleSide }));
+  flag.position.set(-0.18, 0.24, 0);
+  g.add(flag);
+  return { group: g, anim };
+}
+
+function buildEnemyMesh(type) {
+  const g = new THREE.Group();
+  const anim = { legs: [], swing: [], wheels: [] };
+
+  if (type === "grunt") {
+    const s = buildSoldierMesh(false);
+    s.group.traverse(o => {
+      if (o.isMesh && (o.material === MAT.oliveLight || o.material === MAT.olive)) o.material = mat(0x6e5a4a);
+      if (o.isMesh && o.material === MAT.helmet) o.material = mat(0x4a3f33);
+    });
+    g.add(s.group);
+    anim.legs = s.anim.legs;
+    anim.swing = s.anim.swing;
+  }
+
+  if (type === "runner") {
+    const body = box(0.42, 0.1, 0.24, MAT.khaki);
+    body.position.y = 0.14;
+    g.add(body);
+    const hood = box(0.14, 0.06, 0.22, MAT.khakiDark);
+    hood.position.set(0.15, 0.21, 0);
+    g.add(hood);
+    const shield = box(0.02, 0.09, 0.2, MAT.glass);
+    shield.position.set(0.07, 0.26, 0);
+    shield.rotation.z = -0.25;
+    g.add(shield);
+    const bed = box(0.16, 0.05, 0.2, MAT.khakiDark);
+    bed.position.set(-0.11, 0.21, 0);
+    g.add(bed);
+    const driver = sph(0.035, mat(0x4a3f33), 7);
+    driver.position.set(-0.02, 0.28, -0.05);
+    g.add(driver);
+    const spare = cyl(0.05, 0.05, 0.03, MAT.tire, 10);
+    spare.rotation.x = Math.PI / 2;
+    spare.position.set(-0.22, 0.16, 0);
+    g.add(spare);
+    for (const [wx, wz] of [[0.14, -0.14], [0.14, 0.14], [-0.14, -0.14], [-0.14, 0.14]]) {
+      const wg = new THREE.CylinderGeometry(0.065, 0.065, 0.045, 12);
+      wg.rotateX(Math.PI / 2);
+      const wheel = new THREE.Mesh(wg, MAT.tire);
+      wheel.castShadow = true;
+      wheel.position.set(wx, 0.065, wz);
+      g.add(wheel);
+      anim.wheels.push(wheel);
+    }
+  }
+
+  if (type === "tank" || type === "boss") {
+    const s = type === "boss" ? 1.45 : 1;
+    for (const side of [-1, 1]) {
+      const tread = box(0.5 * s, 0.1 * s, 0.1 * s, MAT.tire);
+      tread.position.set(0, 0.07 * s, side * 0.15 * s);
+      g.add(tread);
+      for (let i = 0; i < 4; i++) {
+        const wg = new THREE.CylinderGeometry(0.045 * s, 0.045 * s, 0.05 * s, 10);
+        wg.rotateX(Math.PI / 2);
+        const wheel = new THREE.Mesh(wg, MAT.steelDark);
+        wheel.position.set(-0.18 * s + i * 0.12 * s, 0.055 * s, side * 0.155 * s);
+        g.add(wheel);
+        anim.wheels.push(wheel);
+      }
+    }
+    const hull = box(0.48 * s, 0.13 * s, 0.3 * s, type === "boss" ? MAT.oliveDark : MAT.olive);
+    hull.position.y = 0.17 * s;
+    g.add(hull);
+    const glacis = box(0.1 * s, 0.1 * s, 0.28 * s, type === "boss" ? MAT.oliveDark : MAT.olive);
+    glacis.position.set(0.26 * s, 0.14 * s, 0);
+    glacis.rotation.z = 0.5;
+    g.add(glacis);
+    if (type === "boss") {
+      for (const side of [-1, 1]) {
+        const skirt = box(0.5 * s, 0.06 * s, 0.02, MAT.gunmetal);
+        skirt.position.set(0, 0.13 * s, side * 0.21 * s);
+        g.add(skirt);
+      }
+    }
+    const tur = cyl(0.11 * s, 0.13 * s, 0.09 * s, type === "boss" ? mat(0x333d24) : MAT.oliveDark, 12);
+    tur.position.set(-0.02 * s, 0.28 * s, 0);
+    g.add(tur);
+    const gun = barrel(0.022 * s, 0.38 * s, MAT.gunmetal);
+    gun.position.set(0.05 * s, 0.28 * s, 0);
+    g.add(gun);
+    if (type === "boss") {
+      const hatch = cyl(0.04 * s, 0.04 * s, 0.03, MAT.gunmetal, 8);
+      hatch.position.set(-0.07 * s, 0.34 * s, 0.04);
+      g.add(hatch);
+      const ant = cyl(0.005, 0.005, 0.3, MAT.steelDark, 5);
+      ant.position.set(-0.1 * s, 0.45 * s, -0.06);
+      g.add(ant);
+    }
+  }
+
+  if (type === "gunboat") {
+    const hull = box(0.56, 0.12, 0.26, MAT.hullDark);
+    hull.position.y = 0.07;
+    g.add(hull);
+    const bow = bowPrism(0.13, 0.26, MAT.hullDark);
+    bow.position.set(0.31, 0.07, 0);
+    g.add(bow);
+    const cabin = box(0.18, 0.13, 0.16, MAT.hullGray);
+    cabin.position.set(-0.08, 0.2, 0);
+    g.add(cabin);
+    const tur = cyl(0.05, 0.06, 0.05, MAT.hullDark, 10);
+    tur.position.set(0.12, 0.16, 0);
+    g.add(tur);
+    const gun = barrel(0.016, 0.24, MAT.gunmetal);
+    gun.position.set(0.12, 0.17, 0);
+    g.add(gun);
+    const ant = cyl(0.005, 0.005, 0.2, MAT.steelDark, 5);
+    ant.position.set(-0.16, 0.36, 0.04);
+    g.add(ant);
+  }
+
+  if (type === "barge") {
+    const hull = box(0.85, 0.14, 0.4, mat(0x4e4640, 0.85));
+    hull.position.y = 0.08;
+    g.add(hull);
+    const bow = bowPrism(0.2, 0.4, mat(0x4e4640, 0.85));
+    bow.position.set(0.45, 0.08, 0);
+    g.add(bow);
+    for (let i = 0; i < 3; i++) {
+      const cont = box(0.2, 0.13, 0.26, [MAT.brick, MAT.navy, MAT.oliveDark][i]);
+      cont.position.set(-0.25 + i * 0.24, 0.2, 0);
+      g.add(cont);
+    }
+    const cabin = box(0.14, 0.16, 0.2, MAT.hullGray);
+    cabin.position.set(-0.36, 0.23, 0);
+    g.add(cabin);
+  }
+
+  return { group: g, anim };
+}
+
+function buildPlaneMesh() {
+  const g = new THREE.Group();
+  const fus = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.035, 0.42, 10), MAT.olive);
+  fus.rotation.z = Math.PI / 2;
+  fus.castShadow = true;
+  g.add(fus);
+  const nose = cone(0.05, 0.08, MAT.oliveDark, 10);
+  nose.rotation.z = -Math.PI / 2;
+  nose.position.x = 0.25;
+  g.add(nose);
+  const canopy = sph(0.04, MAT.glass, 8);
+  canopy.scale.set(1.6, 0.8, 1);
+  canopy.position.set(0.04, 0.05, 0);
+  g.add(canopy);
+  const wing = box(0.12, 0.015, 0.62, MAT.oliveLight);
+  wing.position.set(0.04, 0, 0);
+  g.add(wing);
+  const tailW = box(0.07, 0.012, 0.24, MAT.oliveLight);
+  tailW.position.set(-0.18, 0.01, 0);
+  g.add(tailW);
+  const fin = box(0.07, 0.09, 0.012, MAT.oliveLight);
+  fin.position.set(-0.18, 0.05, 0);
+  g.add(fin);
+  const prop = box(0.008, 0.22, 0.03, MAT.steelDark);
+  prop.position.x = 0.3;
+  g.add(prop);
+  return { group: g, prop };
+}
+
+function buildHealthBar(width) {
+  const grp = new THREE.Group();
+  const bg = new THREE.Mesh(new THREE.PlaneGeometry(width, 0.045),
+    new THREE.MeshBasicMaterial({ color: 0x111111, transparent: true, opacity: 0.7, depthWrite: false }));
+  const fg = new THREE.Mesh(new THREE.PlaneGeometry(width, 0.032),
+    new THREE.MeshBasicMaterial({ color: 0x7aa35a, depthWrite: false }));
+  fg.position.z = 0.001;
+  grp.add(bg, fg);
+  grp.visible = false;
+  grp.userData = { fg, width };
+  return grp;
+}
+function setHealthBar(grp, pct) {
+  const { fg, width } = grp.userData;
+  grp.visible = pct < 1;
+  fg.scale.x = Math.max(0.001, pct);
+  fg.position.x = -(1 - pct) * width / 2;
+  fg.material.color.setHex(pct > 0.5 ? 0x7aa35a : pct > 0.25 ? 0xe5b654 : 0xe06c5a);
+}
+
+// ============================================================
+// 11. CAMERA
+// ============================================================
+let camTheta = -1.9, camPhi = 0.78, camDist = 15;
+const camTarget = new THREE.Vector3(CITY.x - 3, 0, CITY.z - 2);
+function applyCamera() {
+  camPhi = clamp(camPhi, 0.2, 1.45);
+  camDist = clamp(camDist, 3, 40);
+  camTarget.x = clamp(camTarget.x, -6, COLS + 6);
+  camTarget.z = clamp(camTarget.z, -6, ROWS + 6);
+  camTarget.y = groundH(camTarget.x, camTarget.z);
+  camera.position.set(
+    camTarget.x + camDist * Math.sin(camPhi) * Math.cos(camTheta),
+    camTarget.y + camDist * Math.cos(camPhi),
+    camTarget.z + camDist * Math.sin(camPhi) * Math.sin(camTheta)
+  );
+  camera.lookAt(camTarget);
+  camera.updateMatrixWorld();   // picking rays are built from this, so keep it fresh
+}
+applyCamera();
+
+const dom = renderer.domElement;
+let dragBtn = -1, lastMx = 0, lastMy = 0, downX = 0, downY = 0, dragged = false;
+dom.addEventListener("contextmenu", e => e.preventDefault());
+dom.addEventListener("pointerdown", e => {
+  dragBtn = e.button;
+  lastMx = downX = e.clientX; lastMy = downY = e.clientY;
+  dragged = false;
+  dom.setPointerCapture(e.pointerId);
+});
+dom.addEventListener("pointermove", e => {
+  updateHover(e);
+  if (dragBtn < 0) return;
+  const dx = e.clientX - lastMx, dy = e.clientY - lastMy;
+  lastMx = e.clientX; lastMy = e.clientY;
+  if (Math.abs(e.clientX - downX) + Math.abs(e.clientY - downY) > 6) dragged = true;
+  if (dragBtn === 0) {
+    camTheta += dx * 0.0055;
+    camPhi -= dy * 0.005;
+  } else {
+    const fwd = new THREE.Vector3(camTarget.x - camera.position.x, 0, camTarget.z - camera.position.z).normalize();
+    const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+    const scale = camDist * 0.0016;
+    camTarget.addScaledVector(right, -dx * scale);
+    camTarget.addScaledVector(fwd, -dy * scale * 1.4);
+  }
+  applyCamera();
+});
+dom.addEventListener("pointerup", e => {
+  if (dragBtn === 0 && !dragged) handleClick(e);
+  dragBtn = -1;
+});
+dom.addEventListener("wheel", e => {
+  e.preventDefault();
+  camDist *= e.deltaY > 0 ? 1.1 : 0.9;
+  applyCamera();
+}, { passive: false });
+
+const keysDown = new Set();
+window.addEventListener("keydown", e => {
+  keysDown.add(e.key.toLowerCase());
+  if (e.key === "Escape") { setPlacing(null); closeSelPanel(); }
+  const map = { "1": "wall", "2": "gunner", "3": "cannon", "4": "emp", "5": "sniper", "6": "camp", "7": "factory", "8": "shipyard", "9": "airfield" };
+  if (map[e.key]) setPlacing(placingType === map[e.key] ? null : map[e.key]);
+  if (e.key === " ") { e.preventDefault(); if (!waveActive) startWave(); }
+});
+window.addEventListener("keyup", e => keysDown.delete(e.key.toLowerCase()));
+function updateKeyPan(dt) {
+  const sp = camDist * 0.9 * dt;
+  const fwd = new THREE.Vector3(camTarget.x - camera.position.x, 0, camTarget.z - camera.position.z).normalize();
+  const right = new THREE.Vector3(-fwd.z, 0, fwd.x);
+  let moved = false;
+  if (keysDown.has("w")) { camTarget.addScaledVector(fwd, sp); moved = true; }
+  if (keysDown.has("s")) { camTarget.addScaledVector(fwd, -sp); moved = true; }
+  if (keysDown.has("a")) { camTarget.addScaledVector(right, -sp); moved = true; }
+  if (keysDown.has("d")) { camTarget.addScaledVector(right, sp); moved = true; }
+  if (moved) applyCamera();
+}
+
+// ============================================================
+// 12. PICKING & PLACEMENT
+// ============================================================
+const raycaster = new THREE.Raycaster();
+const pickVec = new THREE.Vector3();
+function pickCell(e) {
+  const rect = dom.getBoundingClientRect();
+  const ndc = new THREE.Vector2(
+    ((e.clientX - rect.left) / rect.width) * 2 - 1,
+    -((e.clientY - rect.top) / rect.height) * 2 + 1
+  );
+  raycaster.setFromCamera(ndc, camera);
+  // March the ray until it drops below the terrain
+  const origin = raycaster.ray.origin, dir = raycaster.ray.direction;
+  let prevT = 0, prevDiff = origin.y - groundH(origin.x, origin.z);
+  for (let t = 0.5; t < 120; t += 0.5) {
+    const x = origin.x + dir.x * t, y = origin.y + dir.y * t, z = origin.z + dir.z * t;
+    const diff = y - groundH(x, z);
+    if (diff <= 0) {
+      const f = prevDiff / (prevDiff - diff);
+      const ht = prevT + (t - prevT) * f;
+      pickVec.set(origin.x + dir.x * ht, 0, origin.z + dir.z * ht);
+      const col = Math.floor(pickVec.x), row = Math.floor(pickVec.z);
+      if (col < 0 || col >= COLS || row < 0 || row >= ROWS) return null;
+      return { col, row };
+    }
+    prevT = t; prevDiff = diff;
+  }
+  return null;
+}
+
+const rangeRing = new THREE.Mesh(new THREE.RingGeometry(0.955, 1, 64),
+  new THREE.MeshBasicMaterial({ color: 0xa3b16a, transparent: true, opacity: 0.75, side: THREE.DoubleSide, depthWrite: false, depthTest: false }));
+rangeRing.rotation.x = -Math.PI / 2;
+rangeRing.visible = false;
+rangeRing.renderOrder = 3;
+scene.add(rangeRing);
+
+const hoverPlane = new THREE.Mesh(new THREE.PlaneGeometry(0.94, 0.94),
+  new THREE.MeshBasicMaterial({ color: 0x7aa35a, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false }));
+hoverPlane.rotation.x = -Math.PI / 2;
+hoverPlane.visible = false;
+hoverPlane.renderOrder = 2;
+scene.add(hoverPlane);
+
+function footprintCells(type, col, row) {
+  const w = TOWER_TYPES[type].w;
+  const cells = [];
+  for (let i = 0; i < w; i++) cells.push([col + i, row]);
+  return cells;
+}
+function blockReason(type, col, row) {
+  const cells = footprintCells(type, col, row);
+  for (const [c, r] of cells) {
+    const cell = cellAt(c, r);
+    if (!cell) return "Doesn't fit on the map";
+    if (cell.city) return "That's your city centre";
+    if (cell.road) return "Can't build on the road";
+    if (cell.water) return "Can't build in the river";
+    if (cell.steep) return "Ground is too steep here";
+    if (!inTerritory(cell)) return "Outside your territory";
+    if (towerAt(c, r)) return "Position occupied";
+  }
+  if (TOWER_TYPES[type].needsRiver) {
+    let near = false;
+    for (const [c, r] of cells) {
+      const cell = cellAt(c, r);
+      if (cell && cell.nearRiver) near = true;
+    }
+    if (!near) return "Shipyard must sit beside the river";
+  }
+  if (gold < TOWER_TYPES[type].cost) return "Not enough funds";
+  return null;
+}
+
+let ghost = null, hoverCell = null;
+function updateHover(e) {
+  hoverCell = pickCell(e);
+  if (!placingType || !hoverCell) {
+    hoverPlane.visible = false;
+    if (ghost) ghost.visible = false;
+    if (!selectedTower) rangeRing.visible = false;
+    return;
+  }
+  const { col, row } = hoverCell;
+  const def = TOWER_TYPES[placingType];
+  const blocked = !!blockReason(placingType, col, row);
+  const cx = col + def.w / 2, cz = row + 0.5;
+  const y = groundH(cx, cz);
+  hoverPlane.visible = true;
+  hoverPlane.scale.set(def.w, 1, 1);
+  hoverPlane.position.set(cx, y + 0.08, cz);
+  hoverPlane.material.color.setHex(blocked ? 0xe06c5a : 0x7aa35a);
+  if (ghost) {
+    ghost.visible = true;
+    ghost.position.set(cx, footprintGround(footprintCells(placingType, col, row)).hi, cz);
+  }
+  if (def.range > 0) {
+    rangeRing.visible = true;
+    rangeRing.position.set(cx, y + 0.1, cz);
+    rangeRing.scale.set(def.range, def.range, 1);
+    rangeRing.material.color.setHex(blocked ? 0xe06c5a : 0xa3b16a);
+  } else {
+    rangeRing.visible = false;
+  }
+}
+
+function setPlacing(type) {
+  placingType = type;
+  gridGroup.visible = !!type;
+  closeSelPanel();
+  document.querySelectorAll(".towerCard").forEach(c =>
+    c.classList.toggle("selected", c.dataset.tower === type));
+  if (ghost) { scene.remove(ghost); ghost = null; }
+  hoverPlane.visible = false;
+  rangeRing.visible = false;
+  if (type) {
+    const built = buildTower(type, 0, 0, null);
+    ghost = built.group;
+    ghost.traverse(o => {
+      if (o.isMesh) {
+        o.material = o.material.clone();
+        o.material.transparent = true;
+        o.material.opacity = 0.55;
+        o.castShadow = false;
+      }
+    });
+    ghost.visible = false;
+    scene.add(ghost);
+  }
+}
+
+function handleClick(e) {
+  if (gameOver) return;
+  const cell = pickCell(e);
+  if (!cell) { closeSelPanel(); return; }
+  const { col, row } = cell;
+  if (placingType) {
+    placeTower(placingType, col, row);
+    if (!e.shiftKey) setPlacing(null);
+    return;
+  }
+  const t = towerAt(col, row);
+  if (t) selectTower(t);
+  else closeSelPanel();
+}
+
+// ============================================================
+// 13. GAME STATE
+// ============================================================
+let gold, lives, wave, score, towers, enemies, units, projectiles;
+let waveActive, spawnQueue, spawnTimer, speedMult, placingType, selectedTower, gameOver;
+let shipWarned, now = 0;
+
+function clearEntities() {
+  if (towers) for (const t of towers) {
+    scene.remove(t.mesh);
+    if (t.bar) scene.remove(t.bar);
+    if (t.planes) for (const p of t.planes) scene.remove(p.mesh);
+  }
+  if (enemies) for (const e of enemies) { scene.remove(e.mesh); scene.remove(e.bar); }
+  if (units) for (const u of units) { scene.remove(u.mesh); scene.remove(u.bar); }
+  if (projectiles) for (const p of projectiles) scene.remove(p.mesh);
+}
+
+function resetGame() {
+  clearEntities();
+  gold = 320; lives = 20; wave = 0; score = 0;
+  towers = []; enemies = []; units = []; projectiles = [];
+  for (const pt of particles) scene.remove(pt.sprite);
+  particles = [];
+  waveActive = false; spawnQueue = []; spawnTimer = 0;
+  speedMult = 1; selectedTower = null; gameOver = false; shipWarned = false;
+  TERRITORY.radius = 7.5;
+  rebuildFence();
+  setPlacing(null);
+  document.getElementById("overlay").classList.remove("open");
+  document.getElementById("speedBtn").textContent = "⏩ 1x";
+  updateHUD(); updateStartBtn(); closeSelPanel();
+}
+
+// What is coming next wave, so you can garrison the right side of the map
+function incomingRoutes(n) {
+  const list = activeRoutes(n).map(i => ROUTE_NAMES[i]);
+  if (n >= 7) list.push("River");
+  return list;
+}
+function activeRoutes(n) {
+  const list = [];
+  for (let i = 0; i < ROUTE_UNLOCK.length; i++) if (n >= ROUTE_UNLOCK[i]) list.push(i);
+  return list.length ? list : [0];
+}
+function buildWaveQueue(n) {
+  const q = [];
+  const hpScale = Math.pow(1.18, n - 1);
+  const routes = activeRoutes(n);
+  let turn = 0;
+  const push = (type, count, gap) => {
+    for (let i = 0; i < count; i++) {
+      q.push({ type, gap, hpScale, road: routes[turn++ % routes.length] });
+    }
+  };
+  push("grunt", 6 + n * 2, 0.85);
+  if (n >= 2) push("runner", 3 + n, 0.55);
+  if (n >= 4) push("tank", Math.floor(n / 2), 1.4);
+  if (n >= 7) push("gunboat", Math.min(1 + Math.floor((n - 6) / 2), 5), 3.2);
+  if (n >= 10) push("barge", Math.floor((n - 7) / 3), 5.0);
+  if (n % 5 === 0) push("boss", Math.floor(n / 5), 2.5);
+  return q;
+}
+
+// Enemies muster just beyond your frontier, so the front moves out as you grow
+// Everything enters the map where its corridor does: road traffic out of a
+// tunnel mouth, ships out of the river gorge.
+function entryIndex(path) {
+  for (let i = 0; i < path.pts.length; i++) {
+    if (outsideDist(path.pts[i].x, path.pts[i].z) <= TUNNEL_OUT) return i;
+  }
+  return 0;
+}
+function spawnIndex(path) {
+  if (path.entryIdx === undefined) path.entryIdx = entryIndex(path);
+  return path.entryIdx;
+}
+
+function startWave() {
+  if (waveActive || gameOver) return;
+  wave++;
+  if (TERRITORY.expandsAt.includes(wave)) {
+    TERRITORY.radius += TERRITORY.step;
+    rebuildFence();
+    toast("🚩 Territory expanded — new land secured around your city!");
+    sfx("boom");
+  }
+  if (ROUTE_UNLOCK.includes(wave) && wave > 1) {
+    toast("⚠️ A NEW FRONT: the " + ROUTE_NAMES[ROUTE_UNLOCK.indexOf(wave)] + " is now open — defend it!");
+    sfx("boom");
+  } else {
+    toast("Wave " + wave + " incoming via " + incomingRoutes(wave).join(" + "));
+  }
+  spawnQueue = buildWaveQueue(wave);
+  spawnTimer = 0;
+  waveActive = true;
+  updateHUD(); updateStartBtn();
+}
+function endWave() {
+  waveActive = false;
+  // More open fronts means more frontage to hold, so supply scales with them
+  const bonus = Math.round((25 + wave * 5) * (0.7 + 0.45 * activeRoutes(wave).length));
+  gold += bonus;
+  score += wave * 50;
+  toast(`Wave ${wave} repelled! +💵${bonus} supply drop`);
+  updateHUD(); updateStartBtn();
+}
+
+function spawnEnemy(item) {
+  const def = ENEMY_TYPES[item.type];
+  if (def.lane === "river" && !shipWarned) {
+    shipWarned = true;
+    toast("⚓ Enemy ships on the river! Guard the banks or build a Shipyard.");
+  }
+  const path = def.lane === "river" ? RIVER_PATH : ROAD_PATHS[item.road || 0];
+  const idx = spawnIndex(path);
+  const built = buildEnemyMesh(item.type);
+  const p0 = path.pts[idx];
+  built.group.position.set(p0.x, path.ys[idx], p0.z);
+  scene.add(built.group);
+  const bar = buildHealthBar(def.radius * 2.4);
+  scene.add(bar);
+  enemies.push({
+    type: item.type, lane: def.lane, path,
+    x: p0.x, z: p0.z, y: path.ys[idx],
+    seg: idx, segDist: 0, dist: path.cum[idx], dir: 0, lat: 0,
+    hp: def.hp * item.hpScale, maxHp: def.hp * item.hpScale,
+    baseSpeed: def.speed, reward: def.reward, radius: def.radius,
+    melee: def.melee, barY: def.barY, vehicle: def.vehicle, livesCost: def.livesCost,
+    resist: def.resist || 0,
+    slowUntil: 0, walkPhase: Math.random() * Math.PI * 2,
+    engagedBy: null, wallTarget: null, dead: false,
+    mesh: built.group, anim: built.anim, bar,
+  });
+}
+
+// ============================================================
+// 14. BUILDINGS
+// ============================================================
+function towerAt(col, row) {
+  return towers.find(t => t.cells.some(([c, r]) => c === col && r === row));
+}
+function wallLinks(col, row) {
+  const isWall = (c, r) => {
+    const t = towerAt(c, r);
+    return !!t && t.type === "wall";
+  };
+  return { x: isWall(col - 1, row) || isWall(col + 1, row), z: isWall(col, row - 1) || isWall(col, row + 1) };
+}
+
+function placeTower(type, col, row) {
+  const reason = blockReason(type, col, row);
+  if (reason) { toast(reason + "!"); return; }
+  const def = TOWER_TYPES[type];
+  const cells = footprintCells(type, col, row);
+  gold -= def.cost;
+  for (const [c, r] of cells) clearScenery(c, r);
+  const cx = col + def.w / 2, cz = row + 0.5;
+  const ground = footprintGround(cells);
+  const t = {
+    type, col, row, cells,
+    x: cx, z: cz, y: ground.hi, groundLo: ground.lo,
+    a: 0, b: 0, cooldown: 0, spent: def.cost, flash: 0,
+    mesh: null, yaw: null, muzzleLen: 0, muzzleH: 0,
+  };
+  towers.push(t);
+  rebuildTowerMesh(t);
+
+  if (def.kind === "wall") {
+    const conf = wallConf(t);
+    t.hp = conf.hp; t.maxHp = conf.hp;
+    t.bar = buildHealthBar(0.55);
+    scene.add(t.bar);
+    // Neighbouring walls re-link into a continuous rampart
+    for (const [dc, dr] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+      const nb = towerAt(col + dc, row + dr);
+      if (nb && nb.type === "wall") rebuildTowerMesh(nb);
+    }
+  } else if (def.kind === "base") {
+    const conf = unitConf(t);
+    t.rally = conf.domain === "water"
+      ? nearestOnPath(RIVER_PATH, t.x, t.z)
+      : nearestRoadPoint(t.x, t.z);
+    t.respawnQ = [];
+    for (let i = 0; i < conf.max; i++) spawnUnit(t, i);
+  } else if (def.kind === "air") {
+    t.planes = [makePlane(t)];
+  }
+  updateHUD();
+  sfx("puff");
+}
+
+function nearestOnPath(path, x, z) {
+  let bx = path.pts[0].x, bz = path.pts[0].z, bd = Infinity;
+  for (let i = 0; i < path.pts.length - 1; i++) {
+    const a = path.pts[i], b = path.pts[i + 1];
+    const abx = b.x - a.x, abz = b.z - a.z;
+    const len2 = abx * abx + abz * abz || 1e-6;
+    let t = clamp(((x - a.x) * abx + (z - a.z) * abz) / len2, 0, 1);
+    const px = a.x + abx * t, pz = a.z + abz * t;
+    const d = (px - x) ** 2 + (pz - z) ** 2;
+    if (d < bd) { bd = d; bx = px; bz = pz; }
+  }
+  return { x: bx, z: bz };
+}
+
+function rebuildTowerMesh(t) {
+  if (t.mesh) scene.remove(t.mesh);
+  const ctx = t.type === "wall" ? { links: wallLinks(t.col, t.row) } : null;
+  const built = buildTower(t.type, t.a, t.b, ctx);
+  addFoundation(built.group, TOWER_TYPES[t.type].w, t.groundLo, t.y);
+  built.group.position.set(t.x, t.y, t.z);
+  scene.add(built.group);
+  t.mesh = built.group;
+  t.yaw = built.yaw;
+  t.muzzleLen = built.muzzleLen;
+  t.muzzleH = built.muzzleH;
+}
+
+function applyUpgrade(t, branch) {
+  const lvl = branch === 0 ? t.a : t.b;
+  if (lvl >= BRANCH_MAX) return;
+  const cost = upgradeCost(t);
+  if (gold < cost) { toast("Not enough funds!"); return; }
+  gold -= cost;
+  t.spent += cost;
+  if (branch === 0) t.a++; else t.b++;
+  rebuildTowerMesh(t);
+  if (t.type === "wall") {
+    const conf = wallConf(t);
+    t.maxHp = conf.hp; t.hp = conf.hp;
+  }
+  if (TOWER_TYPES[t.type].kind === "base") {
+    for (const u of units.filter(u => u.base === t)) removeUnit(u, true);
+    t.respawnQ = [];
+    const conf = unitConf(t);
+    for (let i = 0; i < conf.max; i++) t.respawnQ.push(0.4 + i * 0.5);
+    toast(TOWER_TYPES[t.type].name + ": units re-equipping!");
+  }
+  updateHUD(); refreshSelPanel();
+  sfx("puff");
+}
+
+function destroyWall(t, silent) {
+  explosion(t.x, t.y, t.z, 0.4);
+  if (t.bar) scene.remove(t.bar);
+  scene.remove(t.mesh);
+  const idx = towers.indexOf(t);
+  if (idx >= 0) towers.splice(idx, 1);
+  for (const e of enemies) if (e.wallTarget === t) e.wallTarget = null;
+  if (selectedTower === t) closeSelPanel();
+  for (const [dc, dr] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const nb = towerAt(t.col + dc, t.row + dr);
+    if (nb && nb.type === "wall") rebuildTowerMesh(nb);
+  }
+  if (!silent) { sfx("boom"); toast("A wall has been breached!"); }
+}
+
+// ============================================================
+// 15. UNITS
+// ============================================================
+function spawnUnit(base, slot) {
+  const conf = unitConf(base);
+  let built;
+  if (base.type === "camp") built = buildSoldierMesh(base.b > 0);
+  else if (base.type === "factory") built = buildTruckMesh(base.b > 0);
+  else built = buildBoatMesh(base.b > 0);
+  built.group.position.set(base.x, base.y, base.z);
+  scene.add(built.group);
+  const bar = buildHealthBar(conf.radius * 2.3);
+  scene.add(bar);
+  const n = Math.max(1, conf.max);
+  const ang = (slot / n) * Math.PI * 2;
+  let rx = base.rally.x + Math.cos(ang) * 0.3;
+  let rz = base.rally.z + Math.sin(ang) * 0.3;
+  if (conf.domain === "water") {
+    const clamped = clampToRiver(rx, rz);
+    rx = clamped.x; rz = clamped.z;
+  }
+  units.push({
+    base, slot, domain: conf.domain,
+    x: base.x, z: base.z, y: base.y,
+    rallyX: rx, rallyZ: rz,
+    hp: conf.hp, maxHp: conf.hp, dmg: conf.dmg, radius: conf.radius,
+    speed: conf.speed, state: "return", target: null,
+    walkPhase: Math.random() * 6, dir: 0,
+    mesh: built.group, anim: built.anim, bar,
+  });
+}
+
+function removeUnit(u, silent) {
+  if (u.target && u.target.engagedBy === u) u.target.engagedBy = null;
+  scene.remove(u.mesh); scene.remove(u.bar);
+  const idx = units.indexOf(u);
+  if (idx >= 0) units.splice(idx, 1);
+  if (!silent) {
+    if (u.domain === "water") { splashRing(u.x, u.z); sfx("boom"); }
+    else { dustPuff(u.x, u.y, u.z); sfx("puff"); }
+    u.base.respawnQ.push(unitConf(u.base).respawn);
+  }
+}
+
+function clampToRiver(x, z) {
+  if (lakeSDF(x, z) < -0.35) return { x, z };      // open water, roam freely
+  const p = nearestOnPath(RIVER_PATH, x, z);
+  const dx = x - p.x, dz = z - p.z;
+  const d = Math.hypot(dx, dz);
+  if (d <= 0.85) return { x, z };
+  if (d < 1e-6) return { x: p.x, z: p.z };
+  return { x: p.x + (dx / d) * 0.85, z: p.z + (dz / d) * 0.85 };
+}
+function inRiver(x, z) {
+  if (lakeSDF(x, z) < 0.2) return true;
+  const p = nearestOnPath(RIVER_PATH, x, z);
+  return Math.hypot(x - p.x, z - p.z) < 1.25 && onBridge(x, z) === null;
+}
+
+function updateUnits(dt) {
+  for (const t of towers) {
+    if (TOWER_TYPES[t.type].kind !== "base" || gameOver) continue;
+    for (let i = t.respawnQ.length - 1; i >= 0; i--) {
+      t.respawnQ[i] -= dt;
+      if (t.respawnQ[i] <= 0) {
+        t.respawnQ.splice(i, 1);
+        spawnUnit(t, Math.floor(Math.random() * 6));
+      }
+    }
+  }
+
+  for (const u of [...units]) {
+    const conf = unitConf(u.base);
+    const wantLane = u.domain === "water" ? "river" : "road";
+    if (!u.target || u.target.dead) {
+      u.target = null;
+      let best = null, bestD = Infinity;
+      for (const e of enemies) {
+        if (e.dead || e.lane !== wantLane || (e.engagedBy && e.engagedBy !== u)) continue;
+        if (Math.hypot(e.x - u.base.rally.x, e.z - u.base.rally.z) > conf.leash) continue;
+        const d = Math.hypot(e.x - u.x, e.z - u.z);
+        if (d < bestD) { bestD = d; best = e; }
+      }
+      if (best) { u.target = best; best.engagedBy = u; u.state = "chase"; }
+      else if (u.state !== "idle") u.state = "return";
+    }
+
+    const moveTo = (tx, tz, arriveDist) => {
+      const d = Math.hypot(tx - u.x, tz - u.z);
+      if (d <= arriveDist) return true;
+      u.dir = Math.atan2(tz - u.z, tx - u.x);
+      let nx = u.x + Math.cos(u.dir) * u.speed * dt;
+      let nz = u.z + Math.sin(u.dir) * u.speed * dt;
+      if (u.domain === "land") {
+        if (inRiver(nx, nz)) {
+          // Skirt the bank rather than wading in
+          if (!inRiver(nx, u.z)) nz = u.z;
+          else if (!inRiver(u.x, nz)) nx = u.x;
+          else { nx = u.x; nz = u.z; }
+        }
+        if (slopeAt(nx, nz) > 1.6) { nx = u.x; nz = u.z; }
+      } else {
+        const c = clampToRiver(nx, nz);
+        nx = c.x; nz = c.z;
+      }
+      u.x = nx; u.z = nz;
+      u.walkPhase += dt * 10;
+      return false;
+    };
+
+    if (u.state === "chase" && u.target) {
+      if (moveTo(u.target.x, u.target.z, u.target.radius + u.radius + 0.05)) u.state = "fight";
+    } else if (u.state === "fight" && u.target) {
+      const e = u.target;
+      const d = Math.hypot(e.x - u.x, e.z - u.z);
+      if (d > e.radius + u.radius + 0.25) { u.state = "chase"; }
+      else {
+        u.dir = Math.atan2(e.z - u.z, e.x - u.x);
+        e.dir = Math.atan2(u.z - e.z, u.x - e.x);
+        u.walkPhase += dt * 16;
+        e.walkPhase += dt * 16;
+        damageEnemy(e, u.dmg * dt);
+        u.hp -= e.melee * dt;
+        if (Math.random() < dt * 2.5) sfx("shot");
+        if (Math.random() < dt * 1.5) {
+          spawnParticle("spark", (u.x + e.x) / 2, u.y + 0.2, (u.z + e.z) / 2, { size: 0.07, life: 0.15 });
+        }
+        if (u.hp <= 0) { removeUnit(u, false); continue; }
+      }
+    } else {
+      if (moveTo(u.rallyX, u.rallyZ, 0.08)) {
+        u.state = "idle";
+        u.hp = Math.min(u.maxHp, u.hp + 4 * dt);
+      } else if (u.state !== "idle") {
+        u.state = "return";
+      }
+    }
+
+    u.y = u.domain === "water" ? WATER_Y : walkH(u.x, u.z);
+    u.mesh.position.set(u.x, u.y, u.z);
+    u.mesh.rotation.y = -u.dir;
+    // Lean into the slope
+    if (u.domain === "land") {
+      const ah = groundH(u.x + Math.cos(u.dir) * 0.3, u.z + Math.sin(u.dir) * 0.3);
+      const bh = groundH(u.x - Math.cos(u.dir) * 0.3, u.z - Math.sin(u.dir) * 0.3);
+      u.mesh.rotation.z = clamp(Math.atan2(ah - bh, 0.6), -0.5, 0.5);
+    }
+    const moving = u.state !== "idle";
+    const swingA = moving ? Math.sin(u.walkPhase) * 0.7 : 0;
+    if (u.anim.legs.length) {
+      u.anim.legs[0].rotation.z = swingA;
+      u.anim.legs[1].rotation.z = -swingA;
+      u.anim.swing[0].rotation.z = -swingA * 0.6;
+      u.anim.swing[1].rotation.z = swingA * 0.6;
+    }
+    for (const w of u.anim.wheels) w.rotation.z -= (moving ? u.speed : 0) * dt * 12;
+    if (u.domain === "water" && moving && Math.random() < dt * 4) {
+      spawnParticle("smoke", u.x - Math.cos(u.dir) * 0.25, WATER_Y + 0.05, u.z - Math.sin(u.dir) * 0.25,
+        { size: 0.07, grow: 0.2, life: 0.4, color: 0xbcd8e4 });
+    }
+    u.bar.position.set(u.x, u.y + 0.45, u.z);
+    setHealthBar(u.bar, u.hp / u.maxHp);
+  }
+}
+
+// ============================================================
+// 16. AIRCRAFT
+// ============================================================
+function makePlane(t) {
+  const built = buildPlaneMesh();
+  const hx = t.x - 1.05, hz = t.z;
+  built.group.position.set(hx, t.y + 0.1, hz);
+  scene.add(built.group);
+  return {
+    mesh: built.group, prop: built.prop,
+    state: "parked", cooldown: 1.5,
+    x: hx, y: t.y + 0.1, z: hz, dir: 0, bank: 0,
+    target: null, passes: 0, home: t,
+  };
+}
+
+function updatePlanes(dt) {
+  for (const t of towers) {
+    if (TOWER_TYPES[t.type].kind !== "air") continue;
+    const conf = airConf(t);
+    const homeX = t.x - 1.05, homeZ = t.z, homeY = t.y + 0.1;
+    for (const p of t.planes) {
+      if (p.state === "parked") {
+        p.cooldown -= dt;
+        const anyTargets = enemies.some(e => !e.dead && Math.hypot(e.x - t.x, e.z - t.z) < conf.leash);
+        if (p.cooldown <= 0 && anyTargets && !gameOver) {
+          p.state = "takeoff"; p.dir = 0; p.passes = 0;
+          sfx("puff");
+        }
+      } else if (p.state === "takeoff") {
+        p.x += Math.cos(p.dir) * 2.2 * dt;
+        p.z += Math.sin(p.dir) * 2.2 * dt;
+        p.y += 1.3 * dt;
+        if (p.y >= homeY + 2.0) p.state = "hunt";
+      } else if (p.state === "hunt") {
+        if (!p.target || p.target.dead) {
+          p.target = null;
+          let best = null, bestD = -1;
+          for (const e of enemies) {
+            if (e.dead) continue;
+            if (Math.hypot(e.x - t.x, e.z - t.z) > conf.leash) continue;
+            if (e.dist > bestD) { bestD = e.dist; best = e; }
+          }
+          if (best) p.target = best;
+          else { p.state = "return"; continue; }
+        }
+        const e = p.target;
+        steer(p, e.x, e.z, dt);
+        p.y = lerp(p.y, Math.max(groundH(p.x, p.z) + 1.3, e.y + 1.3), 2 * dt);
+        if (Math.hypot(e.x - p.x, e.z - p.z) < 0.55) {
+          p.passes++;
+          damageEnemy(e, conf.strafe);
+          sfx("crack");
+          for (let i = 0; i < 4; i++) {
+            spawnParticle("spark", e.x + (Math.random() - 0.5) * 0.3, e.y + 0.2, e.z + (Math.random() - 0.5) * 0.3, { size: 0.08, life: 0.2 });
+          }
+          if (conf.bombs) {
+            const m = sph(0.05, MAT.steelDark, 8);
+            m.scale.x = 1.8;
+            m.position.set(p.x, p.y, p.z);
+            scene.add(m);
+            projectiles.push({
+              kind: "bomb", x: p.x, y: p.y, z: p.z, vy: -2.6,
+              dmg: conf.bombDmg, splash: conf.bombSplash, mesh: m,
+            });
+          }
+          p.target = null;
+          if (p.passes >= 3) p.state = "return";
+        }
+      } else if (p.state === "return") {
+        steer(p, homeX, homeZ, dt);
+        p.y = lerp(p.y, groundH(p.x, p.z) + 1.6, 2 * dt);
+        if (Math.hypot(homeX - p.x, homeZ - p.z) < 1.3) p.state = "land";
+      } else if (p.state === "land") {
+        steer(p, homeX, homeZ, dt, 1.6);
+        p.y = Math.max(homeY, p.y - 1.1 * dt);
+        if (Math.hypot(homeX - p.x, homeZ - p.z) < 0.3 && p.y <= homeY + 0.02) {
+          p.state = "parked";
+          p.cooldown = conf.cooldown;
+          p.x = homeX; p.z = homeZ; p.y = homeY;
+          p.dir = 0; p.bank = 0;
+        }
+      }
+      p.mesh.position.set(p.x, p.y, p.z);
+      p.mesh.rotation.y = -p.dir;
+      p.mesh.rotation.z = p.bank;
+      if (p.state !== "parked") {
+        p.prop.rotation.x += dt * 55;
+        p.bank *= 0.92;
+      }
+    }
+  }
+}
+function steer(p, tx, tz, dt, speedOverride) {
+  const want = Math.atan2(tz - p.z, tx - p.x);
+  let diff = want - p.dir;
+  while (diff > Math.PI) diff -= Math.PI * 2;
+  while (diff < -Math.PI) diff += Math.PI * 2;
+  const turn = clamp(diff, -2.4 * dt, 2.4 * dt);
+  p.dir += turn;
+  p.bank = clamp(p.bank - turn * 2.2, -0.6, 0.6);
+  const sp = speedOverride || 3.3;
+  p.x += Math.cos(p.dir) * sp * dt;
+  p.z += Math.sin(p.dir) * sp * dt;
+}
+
+// ============================================================
+// 17. COLLISION AVOIDANCE
+// ============================================================
+function latMaxFor(m) {
+  return m.lane === "river" ? Math.max(0, 0.85 - m.radius) : Math.max(0, 0.62 - m.radius);
+}
+function resolveCollisions() {
+  const land = [], water = [];
+  for (const e of enemies) {
+    if (e.dead) continue;
+    (e.lane === "river" ? water : land).push(e);
+  }
+  for (const u of units) (u.domain === "water" ? water : land).push(u);
+
+  for (const group of [land, water]) {
+    for (let i = 0; i < group.length; i++) {
+      for (let j = i + 1; j < group.length; j++) {
+        const a = group[i], b = group[j];
+        if (a.engagedBy === b || b.engagedBy === a) continue;
+        const minD = a.radius + b.radius + 0.04;
+        const dx = b.x - a.x, dz = b.z - a.z;
+        const d = Math.hypot(dx, dz);
+        if (d >= minD || d < 0.0001) continue;
+        const overlap = minD - d;
+        const nx = dx / d, nz = dz / d;
+        applyPush(a, -nx * overlap * 0.5, -nz * overlap * 0.5);
+        applyPush(b, nx * overlap * 0.5, nz * overlap * 0.5);
+      }
+    }
+  }
+}
+// Shove a path-follower backwards along its lane (never forwards, so nobody
+// gains free ground from a collision).
+function pushBackOnPath(m, amount) {
+  let left = amount;
+  for (let guard = 0; guard < 8 && left > 1e-6; guard++) {
+    const step = Math.min(left, m.segDist);
+    m.segDist -= step; m.dist -= step; left -= step;
+    if (m.segDist > 1e-6) break;
+    if (m.seg <= 0) { m.segDist = 0; break; }
+    m.seg--;
+    m.segDist = m.path.segLen[m.seg];
+  }
+}
+function applyPush(m, px, pz) {
+  if (m.path) {
+    const segA = m.path.pts[Math.min(m.seg, m.path.pts.length - 2)];
+    const segB = m.path.pts[Math.min(m.seg + 1, m.path.pts.length - 1)];
+    const sl = Math.hypot(segB.x - segA.x, segB.z - segA.z) || 1;
+    const dirX = (segB.x - segA.x) / sl, dirZ = (segB.z - segA.z) / sl;
+    const perpX = -dirZ, perpZ = dirX;
+    m.lat += px * perpX + pz * perpZ;
+    const lm = latMaxFor(m);
+    m.lat = clamp(m.lat, -lm, lm);
+    const along = px * dirX + pz * dirZ;
+    if (along < 0) pushBackOnPath(m, -along);
+  } else {
+    let nx = m.x + px, nz = m.z + pz;
+    if (m.domain === "land" && inRiver(nx, nz)) { nx = m.x; nz = m.z; }
+    if (m.domain === "water") {
+      const c = clampToRiver(nx, nz);
+      nx = c.x; nz = c.z;
+    }
+    m.x = nx; m.z = nz;
+  }
+}
+
+// ============================================================
+// 18. COMBAT & UPDATE
+// ============================================================
+// Enemies march hard across the empty ground beyond your border and drop to
+// their fighting pace once they are inside it, so the long approach from the
+// tunnels does not become dead time.
+function marchFactor(x, z) {
+  const d = Math.hypot(x - CITY.x, z - CITY.z);
+  return 1 + 1.5 * smoothstep(TERRITORY.radius + 1.5, TERRITORY.radius + 7, d);
+}
+
+function damageEnemy(e, dmg) {
+  if (e.dead) return;
+  e.hp -= dmg;
+  if (e.hp <= 0) {
+    e.dead = true;
+    gold += e.reward;
+    score += e.reward;
+    if (e.lane === "river") { explosion(e.x, WATER_Y, e.z, e.radius * 1.4); splashRing(e.x, e.z); sfx("boom"); }
+    else if (e.vehicle) { explosion(e.x, e.y, e.z, e.radius * 1.6); sfx("boom"); }
+    else { dustPuff(e.x, e.y, e.z); sfx("puff"); }
+    updateHUD();
+  }
+}
+
+function update(dt) {
+  now += dt;
+  if (waterTex) waterTex.offset.y -= dt * 0.07;
+
+  if (waveActive && spawnQueue.length > 0) {
+    spawnTimer -= dt;
+    if (spawnTimer <= 0) {
+      spawnEnemy(spawnQueue.shift());
+      spawnTimer = spawnQueue.length ? spawnQueue[0].gap : 0.6;
+    }
+  }
+
+  const walls = towers.filter(t => t.type === "wall");
+
+  // ---- Enemies ----
+  for (const e of enemies) {
+    if (e.dead) continue;
+    const slowed = now < e.slowUntil;
+    const engaged = e.engagedBy && !e.engagedBy.dead;
+    let speed = e.baseSpeed * marchFactor(e.x, e.z) * (slowed ? 0.5 : 1) * (engaged ? e.resist : 1);
+
+    // Ramparts: stop and break through
+    if (!engaged && speed > 0) {
+      if (e.wallTarget && towers.indexOf(e.wallTarget) < 0) e.wallTarget = null;
+      if (!e.wallTarget) {
+        for (const w of walls) {
+          const d = Math.hypot(w.x - e.x, w.z - e.z);
+          if (d < e.radius + 1.25) {
+            const ahead = (w.x - e.x) * Math.cos(e.dir) + (w.z - e.z) * Math.sin(e.dir);
+            if (ahead > -0.2) { e.wallTarget = w; break; }
+          }
+        }
+      } else if (Math.hypot(e.wallTarget.x - e.x, e.wallTarget.z - e.z) > e.radius + 1.5) {
+        e.wallTarget = null;
+      }
+      if (e.wallTarget) {
+        speed = 0;
+        const w = e.wallTarget;
+        w.hp -= e.melee * dt;
+        e.walkPhase += dt * 16;
+        const conf = wallConf(w);
+        if (conf.thorns > 0) damageEnemy(e, conf.thorns * dt);
+        if (Math.random() < dt * 2) sfx("shot");
+        if (Math.random() < dt * 1.2) {
+          spawnParticle("smoke", w.x, w.y + 0.3, w.z, { size: 0.07, grow: 0.2, life: 0.35, color: 0xb9b3a6 });
+        }
+        setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
+        if (w.hp <= 0) { destroyWall(w, false); e.wallTarget = null; }
+      }
+    }
+
+    // Queue behind slower traffic, then dodge around it
+    let blocker = null;
+    if (speed > 0) {
+      for (const o of enemies) {
+        if (o === e || o.dead || o.path !== e.path) continue;
+        const gap = o.dist - e.dist;
+        const rr = e.radius + o.radius;
+        if (gap > 0 && gap < rr + 0.32 && Math.abs(o.lat - e.lat) < rr * 0.95) {
+          const oBlocked = o.wallTarget ? 0 : (o.engagedBy && !o.engagedBy.dead) ? o.resist : 1;
+          const oSpeed = o.baseSpeed * marchFactor(o.x, o.z) * (now < o.slowUntil ? 0.5 : 1) * oBlocked;
+          if (oSpeed < speed) { speed = Math.max(0, oSpeed); blocker = o; }
+        }
+      }
+    }
+    if (blocker && speed < e.baseSpeed * 0.6) {
+      const side = e.lat >= blocker.lat ? 1 : -1;
+      e.lat += side * 0.9 * dt;
+      const lm = latMaxFor(e);
+      e.lat = clamp(e.lat, -lm, lm);
+    }
+
+    if (!engaged && speed > 0) e.walkPhase += dt * speed * 11;
+    let move = speed * dt;
+    while (move > 0 && e.seg < e.path.segLen.length) {
+      const remain = e.path.segLen[e.seg] - e.segDist;
+      const step = Math.min(move, remain);
+      e.segDist += step; e.dist += step; move -= step;
+      if (e.segDist >= e.path.segLen[e.seg] - 0.0001) { e.seg++; e.segDist = 0; }
+    }
+    if (e.seg >= e.path.goalIdx || e.seg >= e.path.segLen.length) {
+      e.dead = true;
+      lives -= e.livesCost;
+      explosion(e.x, e.y, e.z, 0.45);
+      sfx("boom");
+      updateHUD();
+      if (lives <= 0 && !gameOver) { endGame(false); return; }
+      continue;
+    }
+    const a = e.path.pts[e.seg], b = e.path.pts[e.seg + 1];
+    const frac = e.segDist / e.path.segLen[e.seg];
+    const sl = e.path.segLen[e.seg];
+    const dirX = (b.x - a.x) / sl, dirZ = (b.z - a.z) / sl;
+    if (!blocker) e.lat *= Math.max(0, 1 - 0.4 * dt);
+    e.x = a.x + (b.x - a.x) * frac - dirZ * e.lat;
+    e.z = a.z + (b.z - a.z) * frac + dirX * e.lat;
+    if (!engaged && !e.wallTarget) e.dir = Math.atan2(dirZ, dirX);
+
+    e.y = e.lane === "river" ? WATER_Y : walkH(e.x, e.z);
+    e.mesh.position.set(e.x, e.y, e.z);
+    e.mesh.rotation.y = -e.dir;
+    if (e.lane === "road") {
+      const ah = walkH(e.x + dirX * 0.3, e.z + dirZ * 0.3);
+      const bh = walkH(e.x - dirX * 0.3, e.z - dirZ * 0.3);
+      e.mesh.rotation.z = clamp(Math.atan2(ah - bh, 0.6), -0.55, 0.55);
+    } else {
+      e.mesh.rotation.z = Math.sin(now * 1.6 + e.dist) * 0.045;
+    }
+    if (e.anim.legs.length) {
+      const swing = Math.sin(e.walkPhase) * (engaged || e.wallTarget ? 0.5 : 0.7);
+      e.anim.legs[0].rotation.z = swing;
+      e.anim.legs[1].rotation.z = -swing;
+      if (e.anim.swing.length) {
+        e.anim.swing[0].rotation.z = -swing * 0.6;
+        e.anim.swing[1].rotation.z = swing * 0.6;
+      }
+    }
+    for (const w of e.anim.wheels) w.rotation.z -= speed * dt * 14;
+    if (slowed && Math.random() < dt * 6) {
+      spawnParticle("spark", e.x + (Math.random() - 0.5) * 0.2, e.y + 0.2 + Math.random() * 0.2, e.z + (Math.random() - 0.5) * 0.2,
+        { size: 0.07, life: 0.15, color: 0x9fd8f5 });
+    }
+    if (e.vehicle && e.hp < e.maxHp * 0.4 && Math.random() < dt * 5) {
+      spawnParticle("smoke", e.x, e.y + 0.3, e.z, { vy: 0.5, size: 0.08, grow: 0.3, life: 0.6, color: 0x3a3a3a });
+    }
+    if (e.lane === "river" && speed > 0 && Math.random() < dt * 5) {
+      spawnParticle("smoke", e.x - Math.cos(e.dir) * (e.radius + 0.1), WATER_Y + 0.05, e.z - Math.sin(e.dir) * (e.radius + 0.1),
+        { size: 0.08, grow: 0.25, life: 0.45, color: 0xbcd8e4 });
+    }
+    e.bar.position.set(e.x, e.y + e.barY, e.z);
+    setHealthBar(e.bar, Math.max(0, e.hp / e.maxHp));
+  }
+  for (const e of enemies) {
+    if (e.dead) {
+      if (e.engagedBy) { e.engagedBy.target = null; e.engagedBy.state = "return"; e.engagedBy = null; }
+      scene.remove(e.mesh); scene.remove(e.bar);
+    }
+  }
+  enemies = enemies.filter(e => !e.dead);
+
+  if (waveActive && spawnQueue.length === 0 && enemies.length === 0) endWave();
+
+  updateUnits(dt);
+  updatePlanes(dt);
+  resolveCollisions();
+
+  // ---- Wall health bars ----
+  for (const w of walls) {
+    if (!w.bar) continue;
+    w.bar.position.set(w.x, w.y + 0.75, w.z);
+    setHealthBar(w.bar, Math.max(0, w.hp / w.maxHp));
+  }
+
+  // ---- Towers fire ----
+  for (const t of towers) {
+    const kind = TOWER_TYPES[t.type].kind;
+    if (kind !== "shoot") {
+      if (t.mesh.userData.flame) t.mesh.userData.flame.scale.y = 0.9 + Math.sin(now * 12 + t.x) * 0.25;
+      if (t.mesh.userData.chimney && Math.random() < dt * 3) {
+        const c = t.mesh.userData.chimney;
+        spawnParticle("smoke", t.x + c.x, t.y + c.y, t.z + c.z, { vy: 0.4, size: 0.08, grow: 0.2, life: 1.2, color: 0x5a5a56 });
+      }
+      continue;
+    }
+    t.cooldown -= dt;
+    t.flash = Math.max(0, t.flash - dt);
+    if (t.mesh.userData.coils) {
+      for (let i = 0; i < t.mesh.userData.coils.length; i++) {
+        t.mesh.userData.coils[i].rotation.x = now * (1.2 + i * 0.5);
+        t.mesh.userData.coils[i].rotation.y = now * 0.8;
+      }
+    }
+    if (t.cooldown > 0) continue;
+    const s = towerStats(t);
+    let target = null, best = -1;
+    for (const e of enemies) {
+      const d = Math.hypot(e.x - t.x, e.z - t.z);
+      if (d <= s.range && e.dist > best) { best = e.dist; target = e; }
+    }
+    if (!target) continue;
+    t.cooldown = 1 / s.rate;
+    const dir = Math.atan2(target.z - t.z, target.x - t.x);
+    t.yaw.rotation.y = -dir;
+    t.flash = 0.07;
+    sfx({ gunner: "shot", cannon: "thump", emp: "zap", sniper: "crack" }[t.type]);
+    const mx = t.x + Math.cos(dir) * t.muzzleLen;
+    const mz = t.z + Math.sin(dir) * t.muzzleLen;
+    const my = t.y + t.muzzleH;
+    if (t.type !== "emp") spawnParticle("flash", mx, my, mz, { size: 0.22, life: 0.06 });
+    let pm;
+    if (t.type === "cannon") pm = sph(0.045, MAT.shell, 8);
+    else if (t.type === "emp") pm = sph(0.05, MAT.empGlow, 8);
+    else { pm = box(0.16, 0.018, 0.018, MAT.tracer); pm.castShadow = false; }
+    pm.position.set(mx, my, mz);
+    scene.add(pm);
+    projectiles.push({
+      kind: "shot", x: mx, y: my, z: mz,
+      mesh: pm, target,
+      speed: TOWER_TYPES[t.type].projSpeed,
+      dmg: s.dmg, splash: s.splash, slow: s.slow, slowDur: s.slowDur,
+      type: t.type, initDist: Math.hypot(target.x - mx, target.z - mz), traveled: 0,
+    });
+  }
+
+  // ---- Projectiles ----
+  for (const p of projectiles) {
+    if (p.kind === "bomb") {
+      p.y += p.vy * dt;
+      p.vy -= 3 * dt;
+      p.mesh.position.set(p.x, p.y, p.z);
+      if (p.y <= groundH(p.x, p.z) + 0.06) {
+        p.hit = true;
+        scene.remove(p.mesh);
+        explosion(p.x, groundH(p.x, p.z), p.z, p.splash * 0.55);
+        sfx("boom");
+        for (const e of enemies) {
+          if (!e.dead && Math.hypot(e.x - p.x, e.z - p.z) <= p.splash) damageEnemy(e, p.dmg);
+        }
+      }
+      continue;
+    }
+    const tgt = p.target;
+    if (tgt.dead || tgt.hp <= 0) { p.hit = true; scene.remove(p.mesh); continue; }
+    const ty = tgt.y + 0.18;
+    const dx = tgt.x - p.x, dy = ty - p.y, dz = tgt.z - p.z;
+    const d = Math.hypot(dx, dy, dz);
+    const step = p.speed * dt;
+    if (d <= Math.max(step, tgt.radius + 0.05)) {
+      p.hit = true;
+      scene.remove(p.mesh);
+      hitEnemy(p, tgt);
+    } else {
+      p.traveled += step;
+      p.x += (dx / d) * step;
+      p.y += (dy / d) * step;
+      p.z += (dz / d) * step;
+      let py = p.y;
+      if (p.type === "cannon" && p.initDist > 0.1) {
+        const prog = Math.min(1, p.traveled / p.initDist);
+        py += Math.sin(prog * Math.PI) * 0.55;
+        if (Math.random() < 0.5) spawnParticle("smoke", p.x, py, p.z, { size: 0.06, grow: 0.2, life: 0.35 });
+      }
+      p.mesh.position.set(p.x, py, p.z);
+      if (p.type === "gunner" || p.type === "sniper") p.mesh.rotation.y = -Math.atan2(dz, dx);
+    }
+  }
+  projectiles = projectiles.filter(p => !p.hit);
+
+  // ---- Particles ----
+  for (const pt of particles) {
+    pt.sprite.position.x += pt.vx * dt;
+    pt.sprite.position.y += pt.vy * dt;
+    pt.sprite.position.z += pt.vz * dt;
+    pt.vx *= 0.93; pt.vy *= 0.96; pt.vz *= 0.93;
+    if (pt.grow) {
+      pt.sprite.scale.x += pt.grow * dt;
+      pt.sprite.scale.y += pt.grow * dt;
+    }
+    pt.life -= dt;
+    pt.sprite.material.opacity = Math.max(0, pt.life / pt.maxLife) * (pt.kind === "smoke" ? 0.5 : 1);
+    if (pt.life <= 0) scene.remove(pt.sprite);
+  }
+  particles = particles.filter(p => p.life > 0);
+}
+
+function hitEnemy(p, tgt) {
+  const victims = p.splash > 0
+    ? enemies.filter(e => !e.dead && Math.hypot(e.x - tgt.x, e.z - tgt.z) <= p.splash)
+    : [tgt];
+  if (p.type === "cannon") { explosion(tgt.x, tgt.y, tgt.z, p.splash * 0.5); sfx("boom"); }
+  for (const e of victims) {
+    if (p.slow > 0) e.slowUntil = now + p.slowDur;
+    damageEnemy(e, p.dmg);
+  }
+  if (p.type !== "cannon") {
+    spawnParticle("spark", tgt.x, tgt.y + 0.25, tgt.z, { size: 0.1, life: 0.18, color: p.type === "emp" ? 0x9fd8f5 : 0xffd28a });
+  }
+}
+
+function endGame(won) {
+  gameOver = true;
+  waveActive = false;
+  document.getElementById("overlayTitle").textContent = won ? "VICTORY!" : "CITY LOST";
+  document.getElementById("overlayMsg").textContent =
+    `You held the line for ${wave} wave${wave === 1 ? "" : "s"} · Score: ${score}`;
+  document.getElementById("overlay").classList.add("open");
+  updateStartBtn();
+}
+
+// ============================================================
+// 19. SELECTION UI
+// ============================================================
+function selectTower(t) {
+  setPlacing(null);          // must come first: it clears any current selection
+  selectedTower = t;
+  document.getElementById("selPanel").classList.add("open");
+  const def = TOWER_TYPES[t.type];
+  if (def.range > 0) {
+    const s = towerStats(t);
+    rangeRing.visible = true;
+    rangeRing.position.set(t.x, t.y + 0.1, t.z);
+    rangeRing.scale.set(s.range, s.range, 1);
+  } else if (def.kind === "base") {
+    const conf = unitConf(t);
+    rangeRing.visible = true;
+    rangeRing.position.set(t.rally.x, groundH(t.rally.x, t.rally.z) + 0.1, t.rally.z);
+    rangeRing.scale.set(conf.leash, conf.leash, 1);
+  } else if (def.kind === "air") {
+    const conf = airConf(t);
+    rangeRing.visible = true;
+    rangeRing.position.set(t.x, t.y + 0.1, t.z);
+    rangeRing.scale.set(conf.leash, conf.leash, 1);
+  } else {
+    rangeRing.visible = false;
+  }
+  rangeRing.material.color.setHex(0xa3b16a);
+  refreshSelPanel();
+}
+
+function setUpBtn(id, br, lvl, cost, canAfford) {
+  const btn = document.getElementById(id);
+  btn.querySelector(".bname").textContent = br.name + (lvl > 0 ? " " + "★".repeat(lvl) : "");
+  btn.querySelector(".bdesc").textContent = br.desc;
+  if (lvl >= BRANCH_MAX) {
+    btn.querySelector(".bcost").textContent = "MAXED OUT";
+    btn.disabled = true;
+  } else {
+    btn.querySelector(".bcost").textContent = "Upgrade: 💵" + cost;
+    btn.disabled = !canAfford;
+  }
+}
+
+function refreshSelPanel() {
+  if (!selectedTower) return;
+  const t = selectedTower;
+  const [brA, brB] = BRANCHES[t.type];
+  document.getElementById("selTitle").textContent =
+    TOWER_TYPES[t.type].name + " — Level " + (1 + t.a + t.b);
+  const kind = TOWER_TYPES[t.type].kind;
+  if (kind === "wall") {
+    const conf = wallConf(t);
+    document.getElementById("selInfo").textContent =
+      `Integrity ${Math.max(0, Math.ceil(t.hp))}/${Math.ceil(t.maxHp)}` +
+      (conf.thorns ? ` · Razor wire ${conf.thorns.toFixed(0)} dmg/s` : " · No wire");
+  } else if (kind === "base") {
+    const conf = unitConf(t);
+    const alive = units.filter(u => u.base === t).length;
+    const unitName = t.type === "camp" ? "Soldiers" : t.type === "factory" ? "Trucks" : "Boats";
+    document.getElementById("selInfo").textContent =
+      `${unitName} ${alive}/${conf.max} · HP ${conf.hp.toFixed(0)} · Dmg ${conf.dmg.toFixed(0)}/s · Speed ${conf.speed.toFixed(1)}`;
+  } else if (kind === "air") {
+    const conf = airConf(t);
+    document.getElementById("selInfo").textContent =
+      `Strafe ${conf.strafe.toFixed(0)} dmg` + (conf.bombs ? ` · Bombs ${conf.bombDmg.toFixed(0)} dmg` : " · No bombs yet");
+  } else {
+    const s = towerStats(t);
+    document.getElementById("selInfo").textContent =
+      `Dmg ${s.dmg.toFixed(0)} · Rate ${s.rate.toFixed(1)}/s · Range ${(s.range * 10).toFixed(0)}m` +
+      (s.slow ? ` · Stall ${(s.slow * 100).toFixed(0)}%/${s.slowDur.toFixed(1)}s` : "");
+  }
+  const cost = upgradeCost(t);
+  setUpBtn("upABtn", brA, t.a, cost, gold >= cost);
+  setUpBtn("upBBtn", brB, t.b, cost, gold >= cost);
+  document.getElementById("sellBtn").textContent = "Sell 💵" + Math.floor(t.spent * 0.7);
+}
+
+function closeSelPanel() {
+  selectedTower = null;
+  document.getElementById("selPanel").classList.remove("open");
+  if (!placingType) rangeRing.visible = false;
+}
+
+document.getElementById("upABtn").addEventListener("click", () => selectedTower && applyUpgrade(selectedTower, 0));
+document.getElementById("upBBtn").addEventListener("click", () => selectedTower && applyUpgrade(selectedTower, 1));
+document.getElementById("sellBtn").addEventListener("click", () => {
+  const t = selectedTower;
+  if (!t) return;
+  gold += Math.floor(t.spent * 0.7);
+  if (TOWER_TYPES[t.type].kind === "base") {
+    for (const u of units.filter(u => u.base === t)) removeUnit(u, true);
+  }
+  if (t.planes) for (const p of t.planes) scene.remove(p.mesh);
+  if (t.type === "wall") { destroyWall(t, true); closeSelPanel(); updateHUD(); return; }
+  if (t.bar) scene.remove(t.bar);
+  scene.remove(t.mesh);
+  towers.splice(towers.indexOf(t), 1);
+  closeSelPanel();
+  updateHUD();
+});
+
+document.querySelectorAll(".towerCard").forEach(card => {
+  card.addEventListener("click", () => {
+    const type = card.dataset.tower;
+    setPlacing(placingType === type ? null : type);
+  });
+});
+document.getElementById("startWave").addEventListener("click", startWave);
+document.getElementById("restartBtn").addEventListener("click", resetGame);
+document.getElementById("speedBtn").addEventListener("click", () => {
+  speedMult = speedMult === 1 ? 2 : speedMult === 2 ? 3 : 1;
+  document.getElementById("speedBtn").textContent = "⏩ " + speedMult + "x";
+});
+document.getElementById("muteBtn").addEventListener("click", () => {
+  muted = !muted;
+  document.getElementById("muteBtn").textContent = muted ? "🔇" : "🔊";
+});
+
+function updateHUD() {
+  document.getElementById("gold").textContent = Math.floor(gold);
+  document.getElementById("lives").textContent = lives;
+  document.getElementById("waveNum").textContent = wave;
+  document.getElementById("terr").textContent = (TERRITORY.radius * 10).toFixed(0) + "m";
+  document.querySelectorAll(".towerCard").forEach(c =>
+    c.classList.toggle("cant", gold < TOWER_TYPES[c.dataset.tower].cost));
+  if (selectedTower) refreshSelPanel();
+}
+function updateStartBtn() {
+  const btn = document.getElementById("startWave");
+  btn.disabled = waveActive || gameOver;
+  btn.textContent = waveActive ? "Wave " + wave + " incoming…" : "▶ Start Wave " + (wave + 1);
+  const el = document.getElementById("nextRoutes");
+  if (el) {
+    const n = waveActive ? wave : wave + 1;
+    el.textContent = incomingRoutes(n).join(" + ");
+    const opening = ROUTE_UNLOCK.includes(n) && n > 1;
+    el.style.color = opening ? "#e06c5a" : "";
+  }
+}
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById("toast");
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+// ============================================================
+// 20. SOUND
+// ============================================================
+let audioCtx = null, muted = false;
+const lastSfx = {};
+function sfx(kind) {
+  try {
+    if (muted) return;
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return;
+    const nowMs = performance.now();
+    const minGap = { shot: 50, zap: 60, crack: 80, thump: 60, boom: 70, puff: 90 }[kind] || 50;
+    if (lastSfx[kind] && nowMs - lastSfx[kind] < minGap) return;
+    lastSfx[kind] = nowMs;
+    if (!audioCtx) audioCtx = new AC();
+    if (audioCtx.state === "suspended") audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    const noise = (dur, filterFreq, gain, type = "highpass") => {
+      const len = Math.max(1, Math.floor(audioCtx.sampleRate * dur));
+      const buf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+      const d = buf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+      const src = audioCtx.createBufferSource();
+      src.buffer = buf;
+      const f = audioCtx.createBiquadFilter();
+      f.type = type; f.frequency.value = filterFreq;
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      src.connect(f).connect(g).connect(audioCtx.destination);
+      src.start(t0);
+    };
+    const tone = (freqA, freqB, dur, gain, shape = "sine") => {
+      const o = audioCtx.createOscillator();
+      o.type = shape;
+      o.frequency.setValueAtTime(freqA, t0);
+      o.frequency.exponentialRampToValueAtTime(Math.max(20, freqB), t0 + dur);
+      const g = audioCtx.createGain();
+      g.gain.setValueAtTime(gain, t0);
+      g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+      o.connect(g).connect(audioCtx.destination);
+      o.start(t0); o.stop(t0 + dur);
+    };
+    switch (kind) {
+      case "shot":  noise(0.05, 1500, 0.05); break;
+      case "crack": noise(0.1, 900, 0.13); tone(220, 60, 0.08, 0.05); break;
+      case "thump": tone(110, 40, 0.22, 0.18); noise(0.08, 500, 0.06, "lowpass"); break;
+      case "boom":  noise(0.45, 350, 0.22, "lowpass"); tone(80, 30, 0.35, 0.16); break;
+      case "zap":   tone(900, 180, 0.12, 0.055, "square"); break;
+      case "puff":  noise(0.12, 800, 0.035, "bandpass"); break;
+    }
+  } catch (err) { /* audio unavailable */ }
+}
+
+// ============================================================
+// 21. MAIN LOOP
+// ============================================================
+const clock = new THREE.Clock();
+function loop() {
+  requestAnimationFrame(loop);
+  const rawDt = Math.min(clock.getDelta(), 0.05);
+  updateKeyPan(rawDt);
+  if (!gameOver) {
+    const dt = rawDt * speedMult;
+    const steps = speedMult > 1 ? speedMult : 1;
+    for (let i = 0; i < steps; i++) update(dt / steps);
+  }
+  for (const e of enemies) e.bar.quaternion.copy(camera.quaternion);
+  for (const u of units) u.bar.quaternion.copy(camera.quaternion);
+  for (const t of towers) if (t.bar) t.bar.quaternion.copy(camera.quaternion);
+  renderer.render(scene, camera);
+}
+
+resetGame();
+const loadingEl = document.getElementById("loading");
+if (loadingEl) loadingEl.classList.add("done");
+loop();
+</script>
+</body>
+</html>
