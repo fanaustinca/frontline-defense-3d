@@ -2905,18 +2905,23 @@ function destroyWall(t, silent) {
 // ============================================================
 // 15. UNITS
 // ============================================================
-// Troops fall in two abreast, in ranks running back from the lane.
+// Troops hold the lane itself rather than loitering on the verge. They fill
+// from the side their building sits on and spill across to the far side only
+// once the near side is full, then start a fresh rank behind.
+const LANE_HALF = { land: 0.72, water: 0.78 };
 function formationSlot(base, slot, conf) {
-  const gapAcross = conf.radius * 2 + 0.16;
-  const gapBack = conf.radius * 2 + 0.22;
-  const col = slot % 2, rank = Math.floor(slot / 2);
-  const across = (col - 0.5) * gapAcross;
-  const back = (conf.domain === "water" ? 0.0 : 0.62) + rank * gapBack;
   const d = base.rallyDir, side = base.rallySide;
   const perpX = -d.dz, perpZ = d.dx;
-  const shift = base.rallyShift || 0;
-  let x = base.rally.x + d.dx * (across + shift) + perpX * side * back;
-  let z = base.rally.z + d.dz * (across + shift) + perpZ * side * back;
+  const half = LANE_HALF[conf.domain];
+  const across = conf.radius * 2 + 0.08;
+  const usable = (half - conf.radius) * 2;
+  const perRank = Math.max(1, Math.floor(usable / across) + 1);
+  const col = slot % perRank, rank = Math.floor(slot / perRank);
+  // start hard against the near kerb, then step across the lane
+  const offset = side * (half - conf.radius) - side * col * across;
+  const along = rank * (conf.radius * 2 + 0.3) + (base.rallyShift || 0);
+  let x = base.rally.x + perpX * offset + d.dx * along;
+  let z = base.rally.z + perpZ * offset + d.dz * along;
   if (conf.domain === "water") {
     const c = clampToRiver(x, z);
     x = c.x; z = c.z;
@@ -2933,12 +2938,12 @@ function claimPost(base, slot, conf) {
   const perpX = -d.dz, perpZ = d.dx;
   const taken = (x, z) => units.some(o => o.domain === conf.domain &&
     Math.hypot(o.rallyX - x, o.rallyZ - z) < o.radius + conf.radius + 0.06);
-  for (let step = 0; step <= 14; step++) {
+  for (let step = 0; step <= 22; step++) {
     for (const sgn of step === 0 ? [1] : [1, -1]) {
-      for (const extraBack of [0, 0.55, 1.1]) {
-        const along = sgn * step * 0.5;
-        const x = ideal.x + d.dx * along + perpX * side * extraBack;
-        const z = ideal.z + d.dz * along + perpZ * side * extraBack;
+      for (const nudge of [0, 0.28, -0.28]) {
+        const along = sgn * step * 0.42;
+        const x = ideal.x + d.dx * along + perpX * side * nudge;
+        const z = ideal.z + d.dz * along + perpZ * side * nudge;
         if (!navOk(grid, x, z) || taken(x, z)) continue;
         // A boat is held inside the channel, so a berth it cannot actually
         // reach would leave it stranded just short of its post forever.
