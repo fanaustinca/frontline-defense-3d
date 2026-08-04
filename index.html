@@ -1744,15 +1744,15 @@ function wallConf(t) { return { hp: 180 * Math.pow(1.9, t.a), thorns: 14 * t.b }
 function unitConf(t) {
   if (t.type === "camp") return {
     domain: "land", max: 2 + t.a, hp: 60 * Math.pow(1.6, t.b), dmg: 12 * Math.pow(1.45, t.b),
-    speed: 1.5, respawn: 8, leash: 2.6, radius: 0.14,
+    speed: 1.5, respawn: 8, leash: 3.3, radius: 0.14,
   };
   if (t.type === "factory") return {
     domain: "land", max: 2, hp: 150, dmg: 15 * Math.pow(1.6, t.b),
-    speed: 1.9 * Math.pow(1.3, t.a), respawn: 12 * Math.pow(0.65, t.a), leash: 3.1, radius: 0.26,
+    speed: 1.9 * Math.pow(1.3, t.a), respawn: 12 * Math.pow(0.65, t.a), leash: 4.0, radius: 0.26,
   };
   return {
     domain: "water", max: 2 + t.a, hp: 150 * Math.pow(1.5, t.b), dmg: 30 * Math.pow(1.5, t.b),
-    speed: 1.7, respawn: 10, leash: 3.8, radius: 0.39,
+    speed: 1.7, respawn: 10, leash: 4.6, radius: 0.39,
   };
 }
 function airConf(t) {
@@ -2923,6 +2923,36 @@ function formationSlot(base, slot, conf) {
   }
   return { x, z };
 }
+// Find this unit a patch of ground nobody else has been given. Bases often
+// muster on the same stretch of lane, and two units sent to one spot can never
+// both stand on it.
+function claimPost(base, slot, conf) {
+  const grid = conf.domain === "water" ? navWater : navLand;
+  const ideal = formationSlot(base, slot, conf);
+  const d = base.rallyDir, side = base.rallySide;
+  const perpX = -d.dz, perpZ = d.dx;
+  const taken = (x, z) => units.some(o => o.domain === conf.domain &&
+    Math.hypot(o.rallyX - x, o.rallyZ - z) < o.radius + conf.radius + 0.06);
+  for (let step = 0; step <= 14; step++) {
+    for (const sgn of step === 0 ? [1] : [1, -1]) {
+      for (const extraBack of [0, 0.55, 1.1]) {
+        const along = sgn * step * 0.5;
+        const x = ideal.x + d.dx * along + perpX * side * extraBack;
+        const z = ideal.z + d.dz * along + perpZ * side * extraBack;
+        if (!navOk(grid, x, z) || taken(x, z)) continue;
+        // A boat is held inside the channel, so a berth it cannot actually
+        // reach would leave it stranded just short of its post forever.
+        if (conf.domain === "water") {
+          const c = clampToRiver(x, z);
+          if (Math.hypot(c.x - x, c.z - z) > 1e-6) continue;
+        }
+        return { x, z };
+      }
+    }
+  }
+  return navNearestOk(grid, ideal.x, ideal.z, 2);
+}
+
 // Lowest unused rank, so respawns fill gaps rather than doubling up
 function freeSlot(base, max) {
   const taken = new Set(units.filter(u => u.base === base).map(u => u.slot));
@@ -2941,7 +2971,7 @@ function spawnUnit(base, slot) {
   scene.add(built.group);
   const bar = buildHealthBar(conf.radius * 2.3);
   scene.add(bar);
-  const post = formationSlot(base, slot, conf);
+  const post = claimPost(base, slot, conf);
   units.push({
     base, slot, domain: conf.domain,
     x: base.x + spread, z: base.z - spread, y: base.y,
@@ -3006,6 +3036,176 @@ function inRiver(x, z) {
   return Math.hypot(x - p.x, z - p.z) < 1.25 && onBridge(x, z) === null;
 }
 
+// ============================================================
+// NAVIGATION GRID + A*
+// ============================================================
+// Local steering alone cannot get round a headland or a building; units would
+// grind against it forever. This plans a route over passable ground, then the
+// steering below only has to handle the traffic on it.
+const NAV_RES = 2;
+const NAV_X0 = -3, NAV_Z0 = -3;
+const NAV_NX = (COLS + 6) * NAV_RES, NAV_NZ = (ROWS + 6) * NAV_RES;
+const NAV_N = NAV_NX * NAV_NZ;
+const navLand = new Uint8Array(NAV_N);
+const navWater = new Uint8Array(NAV_N);
+const navX = i => NAV_X0 + (i + 0.5) / NAV_RES;
+const navZ = j => NAV_Z0 + (j + 0.5) / NAV_RES;
+const navI = x => Math.floor((x - NAV_X0) * NAV_RES);
+const navJ = z => Math.floor((z - NAV_Z0) * NAV_RES);
+
+(function buildNavGrids() {
+  for (let j = 0; j < NAV_NZ; j++) {
+    for (let i = 0; i < NAV_NX; i++) {
+      const x = navX(i), z = navZ(j), k = j * NAV_NX + i;
+      const wet = inRiver(x, z);
+      navLand[k] = !wet && slopeAt(x, z) <= 1.5 ? 1 : 0;
+      navWater[k] = wet ? 1 : 0;
+    }
+  }
+})();
+
+function navOk(grid, x, z) {
+  const i = navI(x), j = navJ(z);
+  if (i < 0 || i >= NAV_NX || j < 0 || j >= NAV_NZ) return false;
+  return grid[j * NAV_NX + i] === 1;
+}
+// Nearest passable spot, so a post placed on a cliff or in the water still
+// gives its unit somewhere reachable to stand.
+function navNearestOk(grid, x, z, maxR) {
+  if (navOk(grid, x, z)) return { x, z };
+  const step = 1 / NAV_RES;
+  for (let r = step; r <= maxR; r += step) {
+    for (let a = 0; a < 16; a++) {
+      const ang = (a / 16) * Math.PI * 2;
+      const cx = x + Math.cos(ang) * r, cz = z + Math.sin(ang) * r;
+      if (navOk(grid, cx, cz)) return { x: cx, z: cz };
+    }
+  }
+  return { x, z };
+}
+function navClear(grid, ax, az, bx, bz) {
+  const steps = Math.ceil(Math.hypot(bx - ax, bz - az) * NAV_RES * 2) || 1;
+  for (let s = 1; s < steps; s++) {
+    const t = s / steps;
+    if (!navOk(grid, ax + (bx - ax) * t, az + (bz - az) * t)) return false;
+  }
+  return true;
+}
+
+// Scratch buffers reused between searches
+const navG = new Float32Array(NAV_N);
+const navFrom = new Int32Array(NAV_N);
+const navMark = new Int32Array(NAV_N);
+let navStamp = 0;
+const heapNode = new Int32Array(NAV_N);
+const heapF = new Float32Array(NAV_N);
+let heapLen = 0;
+function heapPush(node, f) {
+  let i = heapLen++;
+  heapNode[i] = node; heapF[i] = f;
+  while (i > 0) {
+    const p = (i - 1) >> 1;
+    if (heapF[p] <= heapF[i]) break;
+    const tn = heapNode[p], tf = heapF[p];
+    heapNode[p] = heapNode[i]; heapF[p] = heapF[i];
+    heapNode[i] = tn; heapF[i] = tf;
+    i = p;
+  }
+}
+function heapPop() {
+  const top = heapNode[0];
+  heapLen--;
+  if (heapLen > 0) {
+    heapNode[0] = heapNode[heapLen]; heapF[0] = heapF[heapLen];
+    let i = 0;
+    for (;;) {
+      const l = i * 2 + 1, r = l + 1;
+      let m = i;
+      if (l < heapLen && heapF[l] < heapF[m]) m = l;
+      if (r < heapLen && heapF[r] < heapF[m]) m = r;
+      if (m === i) break;
+      const tn = heapNode[m], tf = heapF[m];
+      heapNode[m] = heapNode[i]; heapF[m] = heapF[i];
+      heapNode[i] = tn; heapF[i] = tf;
+      i = m;
+    }
+  }
+  return top;
+}
+
+const NAV_MAX_NODES = 4000;
+function navFindPath(grid, sx, sz, tx, tz) {
+  const si = clamp(navI(sx), 0, NAV_NX - 1), sj = clamp(navJ(sz), 0, NAV_NZ - 1);
+  let ti = clamp(navI(tx), 0, NAV_NX - 1), tj = clamp(navJ(tz), 0, NAV_NZ - 1);
+  const start = sj * NAV_NX + si;
+  let goal = tj * NAV_NX + ti;
+  if (!grid[goal]) {
+    const near = navNearestOk(grid, tx, tz, 3);
+    ti = clamp(navI(near.x), 0, NAV_NX - 1);
+    tj = clamp(navJ(near.z), 0, NAV_NZ - 1);
+    goal = tj * NAV_NX + ti;
+    if (!grid[goal]) return null;
+  }
+  if (start === goal) return null;
+
+  navStamp++;
+  heapLen = 0;
+  navG[start] = 0;
+  navFrom[start] = -1;
+  navMark[start] = navStamp;
+  const h = (i, j) => Math.hypot(i - ti, j - tj);
+  heapPush(start, h(si, sj));
+
+  let expanded = 0;
+  while (heapLen > 0 && expanded < NAV_MAX_NODES) {
+    const cur = heapPop();
+    if (cur === goal) break;
+    expanded++;
+    const ci = cur % NAV_NX, cj = (cur - ci) / NAV_NX;
+    for (let dj = -1; dj <= 1; dj++) {
+      for (let di = -1; di <= 1; di++) {
+        if (di === 0 && dj === 0) continue;
+        const ni = ci + di, nj = cj + dj;
+        if (ni < 0 || ni >= NAV_NX || nj < 0 || nj >= NAV_NZ) continue;
+        const nk = nj * NAV_NX + ni;
+        if (!grid[nk]) continue;
+        // no squeezing diagonally between two blocked cells
+        if (di && dj && (!grid[cj * NAV_NX + ni] || !grid[nj * NAV_NX + ci])) continue;
+        const step = di && dj ? 1.4142 : 1;
+        const ng = navG[cur] + step;
+        if (navMark[nk] === navStamp && navG[nk] <= ng) continue;
+        navMark[nk] = navStamp;
+        navG[nk] = ng;
+        navFrom[nk] = cur;
+        heapPush(nk, ng + h(ni, nj));
+      }
+    }
+  }
+  if (navMark[goal] !== navStamp) return null;
+
+  const raw = [];
+  for (let k = goal; k !== -1 && k !== start; k = navFrom[k]) {
+    const i = k % NAV_NX, j = (k - i) / NAV_NX;
+    raw.push({ x: navX(i), z: navZ(j) });
+  }
+  raw.reverse();
+  if (!raw.length) return null;
+  raw[raw.length - 1] = { x: tx, z: tz };
+
+  // String-pull: drop waypoints we can see straight past
+  const out = [];
+  let from = { x: sx, z: sz };
+  let i = 0;
+  while (i < raw.length) {
+    let j = raw.length - 1;
+    while (j > i && !navClear(grid, from.x, from.z, raw[j].x, raw[j].z)) j--;
+    out.push(raw[j]);
+    from = raw[j];
+    i = j + 1;
+  }
+  return out;
+}
+
 function updateUnits(dt) {
   for (const t of towers) {
     if (TOWER_TYPES[t.type].kind !== "base" || gameOver) continue;
@@ -3026,7 +3226,8 @@ function updateUnits(dt) {
     const crowded = u.state === "chase" && u.target && !u.target.dead &&
       u.target.engagers.length > 1 &&
       enemies.some(e => !e.dead && e.lane === wantLane && e.engagers.length === 0 &&
-        Math.hypot(e.x - u.base.rally.x, e.z - u.base.rally.z) <= conf.leash);
+        Math.min(Math.hypot(e.x - u.base.rally.x, e.z - u.base.rally.z),
+                 Math.hypot(e.x - u.base.x, e.z - u.base.z)) <= conf.leash);
     if (!u.target || u.target.dead || crowded) {
       releaseTarget(u);
       // Prefer an enemy nobody is on yet; otherwise gang up on the least-swarmed
@@ -3035,12 +3236,15 @@ function updateUnits(dt) {
       for (const e of enemies) {
         if (e.dead || e.lane !== wantLane) continue;
         if (e.engagers.length >= MAX_ENGAGERS) continue;
-        if (Math.hypot(e.x - u.base.rally.x, e.z - u.base.rally.z) > conf.leash) continue;
+        const reach = Math.min(
+          Math.hypot(e.x - u.base.rally.x, e.z - u.base.rally.z),
+          Math.hypot(e.x - u.base.x, e.z - u.base.z));
+        if (reach > conf.leash) continue;
         const d = Math.hypot(e.x - u.x, e.z - u.z);
         const key = e.engagers.length * 1000 + d;    // unclaimed first, then nearest
         if (key < bestKey) { bestKey = key; best = e; }
       }
-      if (best) { u.target = best; best.engagers.push(u); u.state = "chase"; }
+      if (best) { u.target = best; best.engagers.push(u); u.state = "chase"; u.chaseUntil = now + 9; }
       else if (u.state !== "idle") u.state = "return";
     }
 
@@ -3063,23 +3267,54 @@ function updateUnits(dt) {
       }
       return false;
     };
+    const grid = u.domain === "water" ? navWater : navLand;
     const moveTo = (tx, tz, arriveDist) => {
       const d = Math.hypot(tx - u.x, tz - u.z);
-      if (d <= arriveDist) return true;
-      const want = Math.atan2(tz - u.z, tx - u.x);
+      if (d <= arriveDist) { u.route = null; return true; }
+
+      // Re-plan when the destination shifts or the plan goes stale. A straight
+      // shot needs no plan at all.
+      if (!u.routeGoal || Math.hypot(u.routeGoal.x - tx, u.routeGoal.z - tz) > 0.7 || now > (u.reRouteAt || 0)) {
+        u.routeGoal = { x: tx, z: tz };
+        u.reRouteAt = now + 0.45 + (u.slot % 5) * 0.06;   // stagger the searches
+        u.route = (d > 1.1 && !navClear(grid, u.x, u.z, tx, tz))
+          ? navFindPath(grid, u.x, u.z, tx, tz)
+          : null;
+      }
+      // Steer for the next waypoint, skipping any we can already see past
+      let gx = tx, gz = tz;
+      if (u.route && u.route.length) {
+        let guard = 0;
+        while (u.route.length > 1 && guard++ < 3 &&
+               navClear(grid, u.x, u.z, u.route[1].x, u.route[1].z)) u.route.shift();
+        if (Math.hypot(u.route[0].x - u.x, u.route[0].z - u.z) < 0.28) u.route.shift();
+        if (u.route.length) { gx = u.route[0].x; gz = u.route[0].z; }
+        else u.route = null;
+      }
+
+      // Stranded on impassable ground (pushed there, or built over)? Head for
+      // the nearest passable spot and relax the step test so we can get out.
+      const stranded = !navOk(grid, u.x, u.z);
+      if (stranded) {
+        const esc = navNearestOk(grid, u.x, u.z, 3);
+        if (esc.x !== u.x || esc.z !== u.z) { gx = esc.x; gz = esc.z; }
+      }
+      const want = Math.atan2(gz - u.z, gx - u.x);
       const step = u.speed * dt;
       // Straight on if we can, otherwise slip around whatever is in the way
       let nx = u.x, nz = u.z, heading = want, moved = false;
-      for (const swing of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
+      for (const swing of [0, 0.4, -0.4, 0.85, -0.85, 1.35, -1.35, 1.9, -1.9, 2.5, -2.5]) {
         const a = want + swing;
         const cx = u.x + Math.cos(a) * step, cz = u.z + Math.sin(a) * step;
-        if (u.domain === "land") {
-          if (inRiver(cx, cz) || slopeAt(cx, cz) > 1.6) continue;
-        }
-        if (bodyAt(cx, cz)) continue;
+        if (stranded) {
+          // continuous test, so a coarse grid cell cannot trap us
+          if (u.domain === "land" && (inRiver(cx, cz) || slopeAt(cx, cz) > 1.9)) continue;
+        } else if (!navOk(grid, cx, cz)) continue;
+        if (bodyAt(cx, cz) && !stranded) continue;
         nx = cx; nz = cz; heading = a; moved = true;
         break;
       }
+      if (!moved) u.route = null;      // boxed in — replan next tick
       if (u.domain === "water") {
         const c = clampToRiver(nx, nz);
         nx = c.x; nz = c.z;
@@ -3090,12 +3325,19 @@ function updateUnits(dt) {
     };
 
     if (u.state === "chase" && u.target) {
-      const spot = attackPost(u, u.target);
-      if (moveTo(spot.x, spot.z, u.radius * 0.6)) u.state = "fight";
+      if (now > (u.chaseUntil || 0)) {
+        // Cannot get to it — let someone else try and go back on post
+        releaseTarget(u);
+        u.state = "return";
+        u.route = null;
+      } else {
+        const spot = attackPost(u, u.target);
+        if (moveTo(spot.x, spot.z, u.radius * 0.6)) u.state = "fight";
+      }
     } else if (u.state === "fight" && u.target) {
       const e = u.target;
       const d = Math.hypot(e.x - u.x, e.z - u.z);
-      if (d > e.radius + u.radius + 0.32) { u.state = "chase"; }
+      if (d > e.radius + u.radius + 0.32) { u.state = "chase"; u.chaseUntil = now + 9; }
       else {
         u.dir = turnToward(u.dir, Math.atan2(e.z - u.z, e.x - u.x), 8 * dt);
         u.walkPhase += dt * 16;
@@ -3305,7 +3547,7 @@ function pushBackOnPath(m, amount) {
   }
 }
 function applyPush(m, px, pz) {
-  if (m.path) {
+  if (m.path && m.path.pts) {   // a lane follower, not a free-roaming unit
     const segA = m.path.pts[Math.min(m.seg, m.path.pts.length - 2)];
     const segB = m.path.pts[Math.min(m.seg + 1, m.path.pts.length - 1)];
     const sl = Math.hypot(segB.x - segA.x, segB.z - segA.z) || 1;
@@ -3318,7 +3560,8 @@ function applyPush(m, px, pz) {
     if (along < 0) pushBackOnPath(m, -along);
   } else {
     let nx = m.x + px, nz = m.z + pz;
-    if (m.domain === "land" && inRiver(nx, nz)) { nx = m.x; nz = m.z; }
+    // Never shove a unit somewhere it cannot walk out of
+    if (m.domain === "land" && (inRiver(nx, nz) || !navOk(navLand, nx, nz))) { nx = m.x; nz = m.z; }
     if (m.domain === "water") {
       const c = clampToRiver(nx, nz);
       nx = c.x; nz = c.z;
