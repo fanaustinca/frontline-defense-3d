@@ -1722,12 +1722,12 @@ const BRANCHES = {
 const BRANCH_MAX = 2;
 
 const ENEMY_TYPES = {
-  grunt:   { hp: 32,  speed: 1.06, reward: 6,  radius: 0.16, melee: 8,  barY: 0.45, vehicle: false, lane: "road",  livesCost: 1, resist: 0 },
-  runner:  { hp: 20,  speed: 1.84, reward: 7,  radius: 0.22, melee: 14, barY: 0.42, vehicle: true,  lane: "road",  livesCost: 1, resist: 0 },
-  tank:    { hp: 110, speed: 0.69, reward: 14, radius: 0.26, melee: 18, barY: 0.5,  vehicle: true,  lane: "road",  livesCost: 1, resist: 0.30 },
-  boss:    { hp: 900, speed: 0.56, reward: 90, radius: 0.36, melee: 30, barY: 0.7,  vehicle: true,  lane: "road",  livesCost: 2, resist: 0.50 },
-  gunboat: { hp: 70,  speed: 0.85, reward: 15, radius: 0.3,  melee: 16, barY: 0.55, vehicle: true,  lane: "river", livesCost: 1, resist: 0.25 },
-  barge:   { hp: 280, speed: 0.5,  reward: 55, radius: 0.42, melee: 20, barY: 0.6,  vehicle: true,  lane: "river", livesCost: 2, resist: 0.45 },
+  grunt:   { hp: 32,  speed: 1.06, reward: 6,  radius: 0.17, melee: 8,  barY: 0.45, vehicle: false, lane: "road",  livesCost: 1, resist: 0 },
+  runner:  { hp: 20,  speed: 1.84, reward: 7,  radius: 0.27, melee: 14, barY: 0.42, vehicle: true,  lane: "road",  livesCost: 1, resist: 0 },
+  tank:    { hp: 110, speed: 0.69, reward: 14, radius: 0.43, melee: 18, barY: 0.5,  vehicle: true,  lane: "road",  livesCost: 1, resist: 0.30 },
+  boss:    { hp: 900, speed: 0.56, reward: 90, radius: 0.62, melee: 30, barY: 0.7,  vehicle: true,  lane: "road",  livesCost: 2, resist: 0.50 },
+  gunboat: { hp: 70,  speed: 0.85, reward: 15, radius: 0.44, melee: 16, barY: 0.55, vehicle: true,  lane: "river", livesCost: 1, resist: 0.25 },
+  barge:   { hp: 280, speed: 0.5,  reward: 55, radius: 0.65, melee: 20, barY: 0.6,  vehicle: true,  lane: "river", livesCost: 2, resist: 0.45 },
 };
 
 function towerStats(t) {
@@ -1744,15 +1744,15 @@ function wallConf(t) { return { hp: 180 * Math.pow(1.9, t.a), thorns: 14 * t.b }
 function unitConf(t) {
   if (t.type === "camp") return {
     domain: "land", max: 2 + t.a, hp: 60 * Math.pow(1.6, t.b), dmg: 12 * Math.pow(1.45, t.b),
-    speed: 1.5, respawn: 8, leash: 2.6, radius: 0.13,
+    speed: 1.5, respawn: 8, leash: 2.6, radius: 0.14,
   };
   if (t.type === "factory") return {
     domain: "land", max: 2, hp: 150, dmg: 15 * Math.pow(1.6, t.b),
-    speed: 1.9 * Math.pow(1.3, t.a), respawn: 12 * Math.pow(0.65, t.a), leash: 3.1, radius: 0.22,
+    speed: 1.9 * Math.pow(1.3, t.a), respawn: 12 * Math.pow(0.65, t.a), leash: 3.1, radius: 0.26,
   };
   return {
     domain: "water", max: 2 + t.a, hp: 150 * Math.pow(1.5, t.b), dmg: 30 * Math.pow(1.5, t.b),
-    speed: 1.7, respawn: 10, leash: 3.8, radius: 0.27,
+    speed: 1.7, respawn: 10, leash: 3.8, radius: 0.39,
   };
 }
 function airConf(t) {
@@ -2936,14 +2936,15 @@ function spawnUnit(base, slot) {
   if (base.type === "camp") built = buildSoldierMesh(base.b > 0);
   else if (base.type === "factory") built = buildTruckMesh(base.b > 0);
   else built = buildBoatMesh(base.b > 0);
-  built.group.position.set(base.x, base.y, base.z);
+  const spread = (slot % 4) * 0.09 - 0.135;
+  built.group.position.set(base.x + spread, base.y, base.z - spread);
   scene.add(built.group);
   const bar = buildHealthBar(conf.radius * 2.3);
   scene.add(bar);
   const post = formationSlot(base, slot, conf);
   units.push({
     base, slot, domain: conf.domain,
-    x: base.x, z: base.z, y: base.y,
+    x: base.x + spread, z: base.z - spread, y: base.y,
     rallyX: post.x, rallyZ: post.z,
     hp: conf.hp, maxHp: conf.hp, dmg: conf.dmg, radius: conf.radius,
     speed: conf.speed, state: "return", target: null,
@@ -3043,27 +3044,48 @@ function updateUnits(dt) {
       else if (u.state !== "idle") u.state = "return";
     }
 
+    // Would a step to (nx,nz) drive us into something we are not fighting?
+    const bodyAt = (nx, nz) => {
+      const deeper = (ox, oz, m) => {
+        const dNew = (nx - ox) ** 2 + (nz - oz) ** 2;
+        if (dNew >= m * m) return false;                 // clear of it
+        return dNew < (u.x - ox) ** 2 + (u.z - oz) ** 2; // only block if closing in
+      };
+      for (const o of units) {
+        if (o === u || o.domain !== u.domain) continue;
+        if (deeper(o.x, o.z, u.radius + o.radius)) return true;
+      }
+      const wantWater = u.domain === "water";
+      for (const e of enemies) {
+        if (e.dead || u.target === e) continue;          // closing on our own target is fine
+        if ((e.lane === "river") !== wantWater) continue;
+        if (deeper(e.x, e.z, u.radius + e.radius)) return true;
+      }
+      return false;
+    };
     const moveTo = (tx, tz, arriveDist) => {
       const d = Math.hypot(tx - u.x, tz - u.z);
       if (d <= arriveDist) return true;
       const want = Math.atan2(tz - u.z, tx - u.x);
-      u.dir = turnToward(u.dir, want, 8 * dt);
-      let nx = u.x + Math.cos(want) * u.speed * dt;
-      let nz = u.z + Math.sin(want) * u.speed * dt;
-      if (u.domain === "land") {
-        if (inRiver(nx, nz)) {
-          // Skirt the bank rather than wading in
-          if (!inRiver(nx, u.z)) nz = u.z;
-          else if (!inRiver(u.x, nz)) nx = u.x;
-          else { nx = u.x; nz = u.z; }
+      const step = u.speed * dt;
+      // Straight on if we can, otherwise slip around whatever is in the way
+      let nx = u.x, nz = u.z, heading = want, moved = false;
+      for (const swing of [0, 0.6, -0.6, 1.2, -1.2, 1.9, -1.9]) {
+        const a = want + swing;
+        const cx = u.x + Math.cos(a) * step, cz = u.z + Math.sin(a) * step;
+        if (u.domain === "land") {
+          if (inRiver(cx, cz) || slopeAt(cx, cz) > 1.6) continue;
         }
-        if (slopeAt(nx, nz) > 1.6) { nx = u.x; nz = u.z; }
-      } else {
+        if (bodyAt(cx, cz)) continue;
+        nx = cx; nz = cz; heading = a; moved = true;
+        break;
+      }
+      if (u.domain === "water") {
         const c = clampToRiver(nx, nz);
         nx = c.x; nz = c.z;
       }
-      u.x = nx; u.z = nz;
-      u.walkPhase += dt * 10;
+      u.dir = turnToward(u.dir, heading, 8 * dt);
+      if (moved) { u.x = nx; u.z = nz; u.walkPhase += dt * 10; }
       return false;
     };
 
@@ -3232,9 +3254,12 @@ function steer(p, tx, tz, dt, speedOverride) {
 // 17. COLLISION AVOIDANCE
 // ============================================================
 function latMaxFor(m) {
-  return m.lane === "river" ? Math.max(0, 0.85 - m.radius) : Math.max(0, 0.62 - m.radius);
+  return m.lane === "river" ? Math.max(0.06, 0.92 - m.radius) : Math.max(0.06, 0.74 - m.radius);
 }
 function resolveCollisions() {
+  for (let pass = 0; pass < 2; pass++) resolveCollisionPass();
+}
+function resolveCollisionPass() {
   const land = [], water = [];
   for (const e of enemies) {
     if (e.dead) continue;
@@ -3249,10 +3274,17 @@ function resolveCollisions() {
         if ((a.engagers && a.engagers.includes(b)) || (b.engagers && b.engagers.includes(a))) continue;
         const minD = a.radius + b.radius + 0.04;
         const dx = b.x - a.x, dz = b.z - a.z;
-        const d = Math.hypot(dx, dz);
-        if (d >= minD || d < 0.0001) continue;
+        let d = Math.hypot(dx, dz);
+        if (d >= minD) continue;
+        let nx, nz;
+        if (d < 0.0001) {
+          // Exactly coincident (e.g. two units just spawned together): shove
+          // them apart along a fixed axis rather than leaving them welded.
+          nx = 1; nz = 0; d = 0.0001;
+        } else {
+          nx = dx / d; nz = dz / d;
+        }
         const overlap = minD - d;
-        const nx = dx / d, nz = dz / d;
         applyPush(a, -nx * overlap * 0.5, -nz * overlap * 0.5);
         applyPush(b, nx * overlap * 0.5, nz * overlap * 0.5);
       }
@@ -3379,16 +3411,22 @@ function update(dt) {
         if (o === e || o.dead || o.path !== e.path) continue;
         const gap = o.dist - e.dist;
         const rr = e.radius + o.radius;
-        if (gap > 0 && gap < rr + 0.32 && Math.abs(o.lat - e.lat) < rr * 0.95) {
+        // If the lane cannot fit them abreast, queue regardless of how far
+        // apart they have drifted sideways — there is nowhere to pass.
+        const canPass = latMaxFor(e) + latMaxFor(o) >= rr;
+        if (gap > 0 && gap < rr + 0.32 + speed * 0.22 && (!canPass || Math.abs(o.lat - e.lat) < rr * 0.95)) {
           const oBlocked = o.wallTarget ? 0 : o.engagers.length ? o.resist : 1;
           const oSpeed = o.baseSpeed * marchFactor(o.x, o.z) * (now < o.slowUntil ? 0.5 : 1) * oBlocked;
           if (oSpeed < speed) { speed = Math.max(0, oSpeed); blocker = o; }
         }
       }
     }
-    if (blocker && speed < e.baseSpeed * 0.6) {
+    // Pull out to pass only if the lane can actually hold both abreast;
+    // otherwise sit in the queue instead of grinding along its flank.
+    if (blocker && speed < e.baseSpeed * 0.85 &&
+        latMaxFor(e) + latMaxFor(blocker) >= e.radius + blocker.radius) {
       const side = e.lat >= blocker.lat ? 1 : -1;
-      e.lat += side * 0.9 * dt;
+      e.lat += side * 2.4 * dt;
       const lm = latMaxFor(e);
       e.lat = clamp(e.lat, -lm, lm);
     }
