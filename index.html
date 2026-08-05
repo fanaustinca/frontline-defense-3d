@@ -932,6 +932,7 @@ const MAT = {
   shell: mat(0x3a3a34, 0.6, 0.3),
   razor: mat(0xb9bcc0, 0.4, 0.7),
   tunnelDark: mat(0x0d0f12, 1.0), stoneCap: mat(0x847e73, 0.95),
+  portalStone: mat(0x8b8275, 0.96), portalTrim: mat(0x6f665a, 0.96),
   buoy: mat(0xd8622f, 0.7), buoyBand: mat(0xf0ede4, 0.8), rope: mat(0x6b5f47, 0.95),
 };
 
@@ -1237,45 +1238,87 @@ let waterTex = null;
 })();
 
 // --- Tunnel portals where the roads bore into the valley wall ---
+// A real masonry facade with an arched opening cut through it, rather than a
+// hoop stuck on the hillside. The opening is a hole in an extruded shape, so
+// you look through it into the bore rather than at a box.
+function buildPortalFacade(W, H, R, SPR, D) {
+  const shape = new THREE.Shape();
+  shape.moveTo(-W, 0); shape.lineTo(W, 0); shape.lineTo(W, H); shape.lineTo(-W, H);
+  shape.closePath();
+  const hole = new THREE.Path();
+  hole.moveTo(-R, 0);
+  hole.lineTo(-R, SPR);
+  hole.absarc(0, SPR, R, Math.PI, 0, true);
+  hole.lineTo(R, 0);
+  hole.closePath();
+  shape.holes.push(hole);
+  const geo = new THREE.ExtrudeGeometry(shape, { depth: D, bevelEnabled: false });
+  geo.rotateY(Math.PI / 2);          // extrude into the hill, opening across the road
+  geo.computeVertexNormals();
+  return geo;
+}
 (function buildTunnels() {
+  const W = 1.6, H = 2.3, R = 1.0, SPR = 0.8, D = 0.45, BORE = 5.0;
   for (const t of TUNNELS) {
     const poly = t.road.poly, i = t.idx, y = t.road.profile[i];
     const p = poly[i];
     // inward === -1 means the road is drawn for i >= idx, so smaller indices lie
     // outside the map — that is the direction the bore must head.
     const back = poly[clamp(i + t.inward * 4, 0, poly.length - 1)];
-    const yaw = -Math.atan2(back.z - p.z, back.x - p.x);   // local +x heads into the hill
-
+    const yaw = -Math.atan2(back.z - p.z, back.x - p.x);
     const g = new THREE.Group();
-    // Bore: a dark void driven into the rock, seen through the arch
-    const bore = box(5.0, 2.0, 2.02, MAT.tunnelDark);
-    bore.position.set(2.45, 0.98, 0);
-    bore.castShadow = false; bore.receiveShadow = false;
-    g.add(bore);
-    // Arch ring and piers
-    const arch = new THREE.Mesh(new THREE.TorusGeometry(1.02, 0.17, 8, 24, Math.PI), MAT.stone);
-    arch.rotation.y = Math.PI / 2;
-    arch.position.set(-0.02, 0.8, 0);
-    arch.castShadow = true; arch.receiveShadow = true;
-    g.add(arch);
-    for (const sz of [-1, 1]) {
-      const pier = box(0.44, 0.9, 0.36, MAT.stone);
-      pier.position.set(-0.02, 0.45, sz * 1.02);
-      g.add(pier);
+
+    // --- the bore behind, so the opening reads as depth not a painted panel ---
+    const dark = new THREE.MeshStandardMaterial({ color: 0x0c0e11, roughness: 1, side: THREE.DoubleSide });
+    const vault = new THREE.CylinderGeometry(R * 0.96, R * 0.96, BORE, 22, 1, true, Math.PI, Math.PI);
+    vault.rotateZ(-Math.PI / 2);
+    const vaultMesh = new THREE.Mesh(vault, dark);
+    vaultMesh.position.set(D + BORE / 2 - 0.05, SPR, 0);
+    g.add(vaultMesh);
+    const haunch = box(BORE, SPR, R * 1.92, dark);
+    haunch.position.set(D + BORE / 2 - 0.05, SPR / 2, 0);
+    haunch.castShadow = false;
+    g.add(haunch);
+    const capEnd = box(0.2, H, W * 2, dark);
+    capEnd.position.set(D + BORE - 0.1, H / 2, 0);
+    g.add(capEnd);
+
+    // --- the facade ---
+    const facade = new THREE.Mesh(buildPortalFacade(W, H, R, SPR, D), MAT.portalStone);
+    facade.castShadow = true; facade.receiveShadow = true;
+    facade.position.y = -0.12;                       // rooted a little into the ground
+    g.add(facade);
+
+    // voussoirs around the arch, and a keystone at the crown
+    for (let k = 0; k <= 8; k++) {
+      const ang = Math.PI * (k / 8);
+      const isCrown = k === 4;
+      const blk = box(0.1, isCrown ? 0.34 : 0.26, isCrown ? 0.3 : 0.22,
+                      isCrown ? MAT.portalTrim : MAT.portalStone);
+      blk.position.set(-0.06, SPR - 0.12 + Math.sin(ang) * (R + 0.11),
+                       Math.cos(ang) * (R + 0.11));
+      blk.rotation.x = -ang;
+      g.add(blk);
     }
-    // Parapet and keystone over the opening
-    const keystone = box(0.5, 0.34, 0.34, MAT.stoneCap);
-    keystone.position.set(-0.04, 1.9, 0);
-    g.add(keystone);
-    const parapet = box(0.42, 0.4, 2.9, MAT.stoneDark);
-    parapet.position.set(-0.02, 2.14, 0);
-    g.add(parapet);
-    // Wing walls retaining the cutting either side
+    // impost band where the arch springs, and coping along the top
     for (const sz of [-1, 1]) {
-      const wing = box(0.32, 1.05, 1.7, MAT.stone);
-      wing.position.set(0.28, 0.5, sz * 1.85);
-      wing.rotation.y = sz * 0.32;
-      g.add(wing);
+      const imp = box(0.16, 0.11, 0.5, MAT.portalTrim);
+      imp.position.set(-0.05, SPR - 0.17, sz * (R + 0.16));
+      g.add(imp);
+    }
+    const coping = box(D + 0.22, 0.16, W * 2 + 0.22, MAT.portalTrim);
+    coping.position.set(D / 2 - 0.08, H - 0.2, 0);
+    g.add(coping);
+
+    // --- wing walls holding back the cutting, stepping down as they go ---
+    for (const sz of [-1, 1]) {
+      for (let k = 0; k < 3; k++) {
+        const wl = box(0.34, H * (0.62 - k * 0.16), 0.95, MAT.portalStone);
+        wl.position.set(0.05 + k * 0.62, H * (0.62 - k * 0.16) / 2 - 0.12,
+                        sz * (W - 0.1 + k * 0.42));
+        wl.rotation.y = sz * 0.30;
+        g.add(wl);
+      }
     }
     g.position.set(p.x, y, p.z);
     g.rotation.y = yaw;
