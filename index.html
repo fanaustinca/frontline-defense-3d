@@ -1258,7 +1258,8 @@ function buildPortalFacade(W, H, R, SPR, D) {
   return geo;
 }
 (function buildTunnels() {
-  const W = 1.6, H = 2.3, R = 1.0, SPR = 0.8, D = 0.45, BORE = 5.0;
+  const W = 1.6, H = 2.3, R = 1.0, SPR = 0.8, D = 0.85, BORE = 5.0;
+  const SINK = -0.12;                       // the facade is bedded this far into the ground
   for (const t of TUNNELS) {
     const poly = t.road.poly, i = t.idx, y = t.road.profile[i];
     const p = poly[i];
@@ -1266,22 +1267,44 @@ function buildPortalFacade(W, H, R, SPR, D) {
     // outside the map — that is the direction the bore must head.
     const back = poly[clamp(i + t.inward * 4, 0, poly.length - 1)];
     const yaw = -Math.atan2(back.z - p.z, back.x - p.x);
+    // Unit vector pointing into the hill, in world space
+    const olen = Math.hypot(back.x - p.x, back.z - p.z) || 1;
+    const ox = (back.x - p.x) / olen, oz = (back.z - p.z) / olen;
+    // The bore is a hollow shell sitting inside solid terrain, so a sightline
+    // down it eventually meets the hillside. Find where the rock closes over
+    // and stop the tunnel just short of it, so the black always wins.
+    // How far in before the hillside rises into the arch opening itself?
+    // Anything past that point would be visible through the hole, so the black
+    // has to be in front of it. Steep portals get a shallower recess.
+    const archFloor = y + SPR + SINK;
+    let solidAt = BORE;
+    for (let dd = 0.1; dd <= BORE; dd += 0.05) {
+      if (groundH(p.x + ox * dd, p.z + oz * dd) > archFloor) { solidAt = dd; break; }
+    }
+    const seal = clamp(solidAt - 0.34, 0.12, D);
     const g = new THREE.Group();
 
     // --- the bore behind, so the opening reads as depth not a painted panel ---
-    const dark = new THREE.MeshStandardMaterial({ color: 0x0c0e11, roughness: 1, side: THREE.DoubleSide });
-    const vault = new THREE.CylinderGeometry(R * 0.96, R * 0.96, BORE, 22, 1, true, Math.PI, Math.PI);
+    const dark = new THREE.MeshStandardMaterial({ color: 0x0a0c0f, roughness: 1, side: THREE.DoubleSide });
+    // Everything behind is cut generously larger than the opening, so no sliver
+    // of hillside can show round the edge of the arch.
+    // A dark lining just inside the reveal, then the black wall closing it off.
+    // Dark lining filling the reveal from the very front face inwards...
+    const vault = new THREE.CylinderGeometry(R * 1.02, R * 1.02, seal + 0.12, 24, 1, true, Math.PI, Math.PI);
     vault.rotateZ(-Math.PI / 2);
     const vaultMesh = new THREE.Mesh(vault, dark);
-    vaultMesh.position.set(D + BORE / 2 - 0.05, SPR, 0);
+    vaultMesh.position.set((seal + 0.12) / 2 - 0.02, SPR + SINK, 0);
+    vaultMesh.castShadow = false;
     g.add(vaultMesh);
-    const haunch = box(BORE, SPR, R * 1.92, dark);
-    haunch.position.set(D + BORE / 2 - 0.05, SPR / 2, 0);
+    const haunch = box(seal + 0.12, SPR + 0.8, R * 2.04, dark);
+    haunch.position.set((seal + 0.12) / 2 - 0.02, SPR + SINK - (SPR + 0.8) / 2, 0);
     haunch.castShadow = false;
     g.add(haunch);
-    const capEnd = box(0.2, H, W * 2, dark);
-    capEnd.position.set(D + BORE - 0.1, H / 2, 0);
-    g.add(capEnd);
+    // ...closed off by a slab thick enough to swallow the rock behind it
+    const backing = box(1.6, H + 2.0, W * 2 + 1.2, dark);
+    backing.position.set(seal + 0.8, (H + 2.0) / 2 + SINK - 1.0, 0);
+    backing.castShadow = false;
+    g.add(backing);
 
     // --- the facade ---
     const facade = new THREE.Mesh(buildPortalFacade(W, H, R, SPR, D), MAT.portalStone);
@@ -1306,9 +1329,17 @@ function buildPortalFacade(W, H, R, SPR, D) {
       imp.position.set(-0.05, SPR - 0.17, sz * (R + 0.16));
       g.add(imp);
     }
-    const coping = box(D + 0.22, 0.16, W * 2 + 0.22, MAT.portalTrim);
-    coping.position.set(D / 2 - 0.08, H - 0.2, 0);
-    g.add(coping);
+    const cornice = box(D + 0.34, 0.14, W * 2 + 0.34, MAT.portalTrim);
+    cornice.position.set(D / 2 - 0.08, H - 0.19, 0);
+    g.add(cornice);
+    // Pitched roof over the portal house, ridge running across the road
+    const roof = gableRoof(W * 2 + 0.2, D + 0.3, 0.5, 0.14, MAT.roofTile);
+    roof.rotation.y = Math.PI / 2;
+    roof.position.set(D / 2 - 0.08, H - 0.1, 0);
+    g.add(roof);
+    const ridgeCap = box(D + 0.12, 0.08, 0.14, MAT.portalTrim);
+    ridgeCap.position.set(D / 2 - 0.08, H + 0.42, 0);
+    g.add(ridgeCap);
 
     // --- wing walls holding back the cutting, stepping down as they go ---
     for (const sz of [-1, 1]) {
