@@ -5,7 +5,7 @@ install, no server. Open the page and play.
 
 **▶ [Play it here](https://fanaustinca.github.io/frontline-defense-3d/)**
 
-![built with three.js](https://img.shields.io/badge/three.js-r128-black)
+![version](https://img.shields.io/badge/version-1.0.0-a3b16a) ![built with three.js](https://img.shields.io/badge/three.js-r128-black)
 
 ## The game
 
@@ -46,6 +46,14 @@ Just open `index.html` in a browser. Everything is vendored, so it works from
 - `index.html` — the whole game: terrain generation, rendering, and gameplay
 - `lib/three.min.js` — three.js r128, vendored so the page works offline
 - `classic-2d.html` — the original 2D canvas version, kept for posterity
+
+## Versioning
+
+The version shows in the bottom-right corner in game, and lives in one place —
+`GAME_VERSION` at the top of the script in `index.html`. It follows
+[semver](https://semver.org): **MAJOR** for an overhaul that changes how the
+game plays, **MINOR** for a new building or map feature, **PATCH** for fixes.
+Releases are tagged `vX.Y.Z`.
 
 ## Credits
 
